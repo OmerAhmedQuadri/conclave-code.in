@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addAdminSchema } from "@/lib/validations";
+import { addAdminSchema } from "@/models/admin";
 import { getAdminEmail, hashPassword } from "@/lib/admin-auth";
 import { admins } from "@/lib/db";
 
@@ -48,14 +48,14 @@ export async function POST(request: Request) {
 
   const email = parsed.data.email.trim().toLowerCase();
   const col = await admins();
-  const existing = await col.findOne({ email });
-  if (existing) {
+  if (await col.findOne({ email })) {
     return NextResponse.json({ ok: false, message: "Admin already exists" }, { status: 409 });
   }
 
   await col.insertOne({
     email,
     passwordHash: hashPassword(parsed.data.password),
+    role: "admin",
     createdAt: new Date(),
     createdBy: adminEmail,
   });
@@ -69,8 +69,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   }
 
-  const url = new URL(request.url);
-  const target = url.searchParams.get("email")?.trim().toLowerCase();
+  const target = new URL(request.url).searchParams.get("email")?.trim().toLowerCase();
   if (!target) {
     return NextResponse.json({ ok: false, message: "email required" }, { status: 422 });
   }
@@ -81,8 +80,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ ok: false, message: "Cannot remove yourself" }, { status: 400 });
   }
 
-  const col = await admins();
-  const res = await col.deleteOne({ email: target });
+  const res = await (await admins()).deleteOne({ email: target });
   if (res.deletedCount === 0) {
     return NextResponse.json({ ok: false, message: "Admin not found" }, { status: 404 });
   }

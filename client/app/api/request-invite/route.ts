@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requestInviteSchema } from "@/lib/validations";
+import { requestInviteSchema } from "@/models/request-invite";
 import { invitees } from "@/lib/db";
 import { generateInviteToken } from "@/lib/tokens";
 

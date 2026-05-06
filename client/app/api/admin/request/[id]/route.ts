@@ -19,8 +19,7 @@ export async function DELETE(
     return NextResponse.json({ ok: false, message: "Invalid id" }, { status: 422 });
   }
 
-  const col = await invitees();
-  const res = await col.deleteOne({ _id: oid, status: "requested" });
+  const res = await (await invitees()).deleteOne({ _id: oid, status: "requested" });
   if (res.deletedCount === 0) {
     return NextResponse.json(
       { ok: false, message: "Request not found or already actioned" },

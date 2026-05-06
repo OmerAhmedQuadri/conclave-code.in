@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminDecisionSchema } from "@/lib/validations";
+import { decideSchema } from "@/models/decide";
 import { getAdminEmail } from "@/lib/admin-auth";
 import { invitees } from "@/lib/db";
 import { sendConfirmationEmail } from "@/lib/mailer";
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Invalid request" }, { status: 400 });
   }
 
-  const parsed = adminDecisionSchema.safeParse(body);
+  const parsed = decideSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "Invalid payload" }, { status: 422 });
   }

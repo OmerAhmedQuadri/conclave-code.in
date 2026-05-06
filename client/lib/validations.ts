@@ -27,40 +27,4 @@ export const registrationSchema = z.object({
 
 export type RegistrationFormValues = z.infer<typeof registrationSchema>;
 
-export const inviteSchema = z.object({
-  email: z.string().email("Please enter a valid email"),
-  name: z.string().max(80).optional().or(z.literal("")),
-});
-
-export const requestInviteSchema = z.object({
-  email: z.string().email("Please enter a valid email"),
-  name: z.string().min(2, "Please enter your name").max(80),
-  city: z.string().max(60).optional().or(z.literal("")),
-  reason: z
-    .string()
-    .max(500, "Please keep this under 500 characters")
-    .optional()
-    .or(z.literal("")),
-});
-
-export type RequestInviteFormValues = z.infer<typeof requestInviteSchema>;
-
-export const verifyOtpSchema = z.object({
-  token: z.string().min(10),
-  otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit code"),
-});
-
-export const adminDecisionSchema = z.object({
-  token: z.string().min(10),
-  decision: z.enum(["approve", "reject"]),
-});
-
-export const adminLoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-});
-
-export const addAdminSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
+export { requestInviteSchema, type RequestInviteInput as RequestInviteFormValues } from "@/models/request-invite";

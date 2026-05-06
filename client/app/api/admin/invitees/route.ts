@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { InviteeListItem } from "@/models/invitee";
 import { isAdmin } from "@/lib/admin-auth";
 import { invitees } from "@/lib/db";
 
@@ -13,21 +14,20 @@ export async function GET() {
     .sort({ invitedAt: -1 })
     .toArray();
 
-  return NextResponse.json({
-    ok: true,
-    invitees: docs.map((d) => ({
-      id: d._id?.toString(),
-      email: d.email,
-      name: d.name,
-      status: d.status,
-      token: d.token,
-      reason: d.reason,
-      requestedAt: d.requestedAt,
-      invitedAt: d.invitedAt,
-      registeredAt: d.registeredAt,
-      verifiedAt: d.verifiedAt,
-      decidedAt: d.decidedAt,
-      formData: d.formData,
-    })),
-  });
+  const list: InviteeListItem[] = docs.map((d) => ({
+    id: d._id?.toString(),
+    email: d.email,
+    name: d.name,
+    status: d.status,
+    token: d.token,
+    reason: d.reason,
+    requestedAt: d.requestedAt,
+    invitedAt: d.invitedAt,
+    registeredAt: d.registeredAt,
+    verifiedAt: d.verifiedAt,
+    decidedAt: d.decidedAt,
+    formData: d.formData,
+  }));
+
+  return NextResponse.json({ ok: true, invitees: list });
 }

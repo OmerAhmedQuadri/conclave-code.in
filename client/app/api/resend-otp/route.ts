@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { resendOtpSchema } from "@/models/resend-otp";
 import { invitees } from "@/lib/db";
 import { generateOtp, OTP_TTL_MS } from "@/lib/tokens";
 import { sendOtpEmail } from "@/lib/mailer";
-
-const bodySchema = z.object({ token: z.string().min(10) });
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -14,7 +12,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Invalid request" }, { status: 400 });
   }
 
-  const parsed = bodySchema.safeParse(body);
+  const parsed = resendOtpSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "Invalid request" }, { status: 422 });
   }

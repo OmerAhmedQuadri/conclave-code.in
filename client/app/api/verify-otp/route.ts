@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyOtpSchema } from "@/lib/validations";
+import { verifyOtpSchema } from "@/models/verify-otp";
 import { invitees } from "@/lib/db";
 import { OTP_MAX_ATTEMPTS } from "@/lib/tokens";
 

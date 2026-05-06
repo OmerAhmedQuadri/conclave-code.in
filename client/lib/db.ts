@@ -1,4 +1,9 @@
 import { MongoClient, type Db, type Collection } from "mongodb";
+import type { AdminDoc } from "@/models/admin";
+import type { InviteeDoc } from "@/models/invitee";
+
+export type { AdminDoc, InviteeDoc };
+export type { InviteeStatus } from "@/models/invitee";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -22,42 +27,6 @@ export async function getDb(): Promise<Db> {
   const client = await getClientPromise();
   const dbName = process.env.MONGODB_DB ?? "fe-conclave";
   return client.db(dbName);
-}
-
-export type InviteeStatus =
-  | "requested"
-  | "invited"
-  | "registered"
-  | "otp_verified"
-  | "approved"
-  | "rejected";
-
-export interface InviteeDoc {
-  _id?: import("mongodb").ObjectId;
-  email: string;
-  name?: string;
-  token: string;
-  status: InviteeStatus;
-  otp?: string;
-  otpExpiresAt?: Date;
-  otpAttempts?: number;
-  formData?: Record<string, unknown>;
-  reason?: string;             // free-text from "Request invite" form
-  requestedAt?: Date;
-  invitedBy?: string;
-  invitedAt?: Date;
-  registeredAt?: Date;
-  verifiedAt?: Date;
-  decidedAt?: Date;
-  decidedBy?: string;
-}
-
-export interface AdminDoc {
-  _id?: import("mongodb").ObjectId;
-  email: string;
-  passwordHash: string;
-  createdAt: Date;
-  createdBy?: string;
 }
 
 export async function invitees(): Promise<Collection<InviteeDoc>> {
