@@ -52,6 +52,4 @@ export type InviteePublicResponse =
   | { ok: true; invitee: { email: string; name?: string; status: InviteeStatus } }
   | { ok: false; message: string };
 
-export type InviteeDeleteResponse =
-  | { ok: true }
-  | { ok: false; message: string };
+export type InviteeDeleteResponse = { ok: true } | { ok: false; message: string };

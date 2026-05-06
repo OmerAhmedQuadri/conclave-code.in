@@ -48,10 +48,7 @@ function envBootstrapMatch(email: string, password: string): boolean {
   return safeEqualStr(email.toLowerCase(), e.toLowerCase()) && safeEqualStr(password, p);
 }
 
-export async function verifyCredentials(
-  email: string,
-  password: string,
-): Promise<string | null> {
+export async function verifyCredentials(email: string, password: string): Promise<string | null> {
   const normalized = email.trim().toLowerCase();
   if (envBootstrapMatch(normalized, password)) return normalized;
   const col = await admins();

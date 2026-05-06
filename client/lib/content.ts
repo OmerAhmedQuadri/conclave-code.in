@@ -23,13 +23,11 @@ export const content = {
     title: "By invitation\nonly.",
     intro:
       "An evening for premium families navigating engineering education in the AI era. Forty families. One conversation. Entry is by personal invitation from code.in.",
-    note:
-      "If you've received an invitation by email, please use the link in that email to register. If not, you can request one below — we review every request personally.",
+    note: "If you've received an invitation by email, please use the link in that email to register. If not, you can request one below — we review every request personally.",
     primaryCta: "Request an invite",
     secondaryCta: "I already have one",
     closingTitle: "Think your family is a fit?",
-    closingBody:
-      "We review every request personally. Most invitations go out within 48 hours.",
+    closingBody: "We review every request personally. Most invitations go out within 48 hours.",
   },
 
   request: {
@@ -43,18 +41,17 @@ export const content = {
       city: { label: "City (optional)", placeholder: "Hyderabad" },
       reason: {
         label: "Why this evening interests you (optional)",
-        placeholder: "Anything that helps us understand your situation — child's age, current school, the decision you're weighing.",
+        placeholder:
+          "Anything that helps us understand your situation — child's age, current school, the decision you're weighing.",
       },
     },
     submit: "Send request",
     submitting: "Sending...",
-    privacy:
-      "We'll only contact you about this event. No marketing, no third parties.",
+    privacy: "We'll only contact you about this event. No marketing, no third parties.",
     success: {
       label: "REQUEST RECEIVED",
       title: "Thank you.",
-      body:
-        "We've received your request. Our team reviews each one personally — if your family is a fit for this evening, an invitation will arrive in your inbox within 48 hours.",
+      body: "We've received your request. Our team reviews each one personally — if your family is a fit for this evening, an invitation will arrive in your inbox within 48 hours.",
       backLink: "Back to the event details",
     },
   },
@@ -118,9 +115,21 @@ export const content = {
     title: "Two-and-a-half hours.\nNo wasted minutes.",
     schedule: [
       { time: "6:00 PM", title: "Doors open", body: "Registration, welcome drinks, name tags." },
-      { time: "6:30 PM", title: "Opening", body: "Sami sets the room — what we're here to discuss, what's off the table." },
-      { time: "6:45 PM", title: "Panel", body: "90 minutes with the speakers. Pre-submitted questions are answered first; live Q&A follows." },
-      { time: "8:15 PM", title: "1:1 access", body: "Structured small-group time with the panel and code.in advisors. Bring specific questions." },
+      {
+        time: "6:30 PM",
+        title: "Opening",
+        body: "Sami sets the room — what we're here to discuss, what's off the table.",
+      },
+      {
+        time: "6:45 PM",
+        title: "Panel",
+        body: "90 minutes with the speakers. Pre-submitted questions are answered first; live Q&A follows.",
+      },
+      {
+        time: "8:15 PM",
+        title: "1:1 access",
+        body: "Structured small-group time with the panel and code.in advisors. Bring specific questions.",
+      },
       { time: "8:30 PM", title: "Close", body: "" },
     ],
   },
@@ -208,15 +217,13 @@ export const content = {
     studentAgeOptions: ["15", "16", "17", "18", "19", "20", "21"],
     submit: "Send verification code",
     submitting: "Sending...",
-    privacyNote:
-      "We'll only contact you about this event. No spam, no third parties.",
+    privacyNote: "We'll only contact you about this event. No spam, no third parties.",
   },
 
   waitlist: {
     label: "ON THE WAITLIST",
     title: "We've got your details.",
-    body:
-      "Your email is verified and your registration is now under review by the code.in team. You'll receive a confirmation by email once your seat is approved.",
+    body: "Your email is verified and your registration is now under review by the code.in team. You'll receive a confirmation by email once your seat is approved.",
     nextStepsTitle: "What happens next",
     nextSteps: [
       "Our team reviews your registration manually within 1-2 days.",

@@ -20,7 +20,7 @@ const SelectTrigger = React.forwardRef<
       "placeholder:text-cream-40",
       "focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold",
       "disabled:cursor-not-allowed disabled:opacity-50",
-      "[&[data-placeholder]]:text-cream-40 transition-colors",
+      "transition-colors [&[data-placeholder]]:text-cream-40",
       className
     )}
     {...props}
@@ -87,11 +87,4 @@ const SelectItem = React.forwardRef<
 ));
 SelectItem.displayName = SelectPrimitive.Item.displayName;
 
-export {
-  Select,
-  SelectGroup,
-  SelectValue,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-};
+export { Select, SelectGroup, SelectValue, SelectTrigger, SelectContent, SelectItem };

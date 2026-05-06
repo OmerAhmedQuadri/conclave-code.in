@@ -22,7 +22,7 @@ export function SiteFooter() {
               href={whatsappLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-sans text-cream hover:text-gold transition-colors"
+              className="font-sans text-cream transition-colors hover:text-gold"
             >
               WhatsApp {siteConfig.whatsappNumber}
             </a>

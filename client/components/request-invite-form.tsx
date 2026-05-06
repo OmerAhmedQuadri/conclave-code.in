@@ -53,10 +53,8 @@ export function RequestInviteForm() {
     const { success } = content.request;
     return (
       <div className="space-y-6">
-        <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">
-          {success.label}
-        </p>
-        <h2 className="font-heading text-3xl font-bold leading-tight text-cream md:text-4xl text-balance">
+        <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">{success.label}</p>
+        <h2 className="text-balance font-heading text-3xl font-bold leading-tight text-cream md:text-4xl">
           {success.title}
         </h2>
         <p className="max-w-lg font-sans text-base text-cream-70 md:text-lg">
@@ -64,7 +62,7 @@ export function RequestInviteForm() {
         </p>
         <Link
           href="/"
-          className="inline-flex items-center gap-2 font-sans text-sm text-cream-70 hover:text-gold transition-colors"
+          className="inline-flex items-center gap-2 font-sans text-sm text-cream-70 transition-colors hover:text-gold"
         >
           ← {success.backLink}
         </Link>
@@ -118,9 +116,7 @@ export function RequestInviteForm() {
       </div>
 
       <div className="flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="font-sans text-xs text-cream-40 sm:max-w-sm">
-          {content.request.privacy}
-        </p>
+        <p className="font-sans text-xs text-cream-40 sm:max-w-sm">{content.request.privacy}</p>
         <Button type="submit" size="lg" disabled={submitting}>
           {submitting ? content.request.submitting : content.request.submit}
         </Button>

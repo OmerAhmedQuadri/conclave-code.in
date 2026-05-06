@@ -49,11 +49,7 @@ const wrap = (inner: string) => `
   </table>
 </body></html>`;
 
-export async function sendInviteEmail(args: {
-  to: string;
-  name?: string;
-  inviteUrl: string;
-}) {
+export async function sendInviteEmail(args: { to: string; name?: string; inviteUrl: string }) {
   const greeting = args.name ? `Dear ${args.name},` : "Hello,";
   const html = wrap(`
     <tr><td style="font-size:24px;font-weight:600;line-height:1.3;padding-bottom:16px;">You're invited to the Future Engineers Conclave.</td></tr>

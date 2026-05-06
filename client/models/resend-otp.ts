@@ -6,6 +6,4 @@ export const resendOtpSchema = z.object({
 
 export type ResendOtpInput = z.infer<typeof resendOtpSchema>;
 
-export type ResendOtpResponse =
-  | { ok: true }
-  | { ok: false; message: string };
+export type ResendOtpResponse = { ok: true } | { ok: false; message: string };

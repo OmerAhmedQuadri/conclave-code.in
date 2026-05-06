@@ -13,7 +13,10 @@ export async function POST(request: Request) {
 
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, message: "Email and password required" }, { status: 422 });
+    return NextResponse.json(
+      { ok: false, message: "Email and password required" },
+      { status: 422 }
+    );
   }
 
   const email = parsed.data.email.trim().toLowerCase();

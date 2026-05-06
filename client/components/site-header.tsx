@@ -19,20 +19,18 @@ export function SiteHeader({ label, title, intro }: SiteHeaderProps) {
         </div>
 
         <div className="mt-10">
-          <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">
-            {label}
-          </p>
-          <h1 className="mt-3 whitespace-pre-line font-heading text-4xl font-bold leading-tight text-cream text-balance md:text-5xl lg:text-6xl">
+          <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">{label}</p>
+          <h1 className="mt-3 whitespace-pre-line text-balance font-heading text-4xl font-bold leading-tight text-cream md:text-5xl lg:text-6xl">
             {title}
           </h1>
           {intro && (
-            <p className="mt-5 max-w-xl font-sans text-base text-cream-70 md:text-lg">
-              {intro}
-            </p>
+            <p className="mt-5 max-w-xl font-sans text-base text-cream-70 md:text-lg">{intro}</p>
           )}
           <div className="mt-6 flex flex-col items-start gap-1 font-mono text-xs uppercase tracking-wider text-cream-70 sm:flex-row sm:items-center sm:gap-3">
             <span className="font-bold text-gold">{content.brand.eventName}</span>
-            <span className="hidden sm:inline text-cream-40" aria-hidden>·</span>
+            <span className="hidden text-cream-40 sm:inline" aria-hidden>
+              ·
+            </span>
             <span>{content.brand.chapter}</span>
           </div>
         </div>

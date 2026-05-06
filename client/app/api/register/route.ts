@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   if (doc.status === "approved" || doc.status === "rejected") {
     return NextResponse.json(
       { ok: false, message: "This invitation has already been finalised" },
-      { status: 409 },
+      { status: 409 }
     );
   }
 
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         otpAttempts: 0,
         registeredAt: new Date(),
       },
-    },
+    }
   );
 
   try {

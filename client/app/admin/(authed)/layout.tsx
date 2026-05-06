@@ -6,18 +6,14 @@ import { LogoutButton } from "@/components/admin-logout";
 
 export const dynamic = "force-dynamic";
 
-export default async function AuthedAdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function AuthedAdminLayout({ children }: { children: React.ReactNode }) {
   const adminEmail = await getAdminEmail();
   if (!adminEmail) redirect("/admin/login");
 
   return (
     <div className="min-h-screen bg-ink">
       <header className="border-b border-border">
-        <div className="container max-w-5xl flex items-center justify-between py-5">
+        <div className="container flex max-w-5xl items-center justify-between py-5">
           <div className="flex items-center gap-6">
             <Link href="/admin" className="flex items-center gap-3">
               <CodeInLogo height={22} />
@@ -26,16 +22,16 @@ export default async function AuthedAdminLayout({
               </span>
             </Link>
             <nav className="flex gap-4 font-mono text-xs tracking-[0.2em] text-cream-70">
-              <Link href="/admin" className="hover:text-gold transition-colors">
+              <Link href="/admin" className="transition-colors hover:text-gold">
                 INVITEES
               </Link>
-              <Link href="/admin/admins" className="hover:text-gold transition-colors">
+              <Link href="/admin/admins" className="transition-colors hover:text-gold">
                 ADMINS
               </Link>
             </nav>
           </div>
           <div className="flex items-center gap-4 text-sm">
-            <span className="text-cream-40 hidden sm:inline">{adminEmail}</span>
+            <span className="hidden text-cream-40 sm:inline">{adminEmail}</span>
             <LogoutButton />
           </div>
         </div>

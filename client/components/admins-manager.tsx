@@ -52,7 +52,10 @@ export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
       setPassword("");
       await refresh();
     } catch (err) {
-      setFeedback({ type: "err", message: err instanceof Error ? err.message : "Something went wrong" });
+      setFeedback({
+        type: "err",
+        message: err instanceof Error ? err.message : "Something went wrong",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -72,13 +75,13 @@ export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
   };
 
   return (
-    <main className="container max-w-3xl py-10 md:py-14 space-y-10">
+    <main className="container max-w-3xl space-y-10 py-10 md:py-14">
       <div>
         <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">ADMINS</p>
         <h1 className="mt-2 font-heading text-3xl font-bold text-cream">Manage admin access</h1>
         <p className="mt-3 max-w-xl text-sm text-cream-70">
-          The bootstrap admin from <code className="font-mono text-xs text-gold">ADMIN_EMAIL</code> always works.
-          Add additional admins below — each gets their own email + password.
+          The bootstrap admin from <code className="font-mono text-xs text-gold">ADMIN_EMAIL</code>{" "}
+          always works. Add additional admins below — each gets their own email + password.
         </p>
       </div>
 
@@ -117,7 +120,7 @@ export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
               "mt-4 rounded-md border p-3 text-sm",
               feedback.type === "ok"
                 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                : "border-destructive/40 bg-destructive/10 text-destructive",
+                : "border-destructive/40 bg-destructive/10 text-destructive"
             )}
             role={feedback.type === "err" ? "alert" : undefined}
           >
@@ -126,13 +129,19 @@ export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
         )}
       </section>
 
-      <section className="rounded-md border border-border overflow-hidden">
+      <section className="overflow-hidden rounded-md border border-border">
         <table className="w-full text-sm">
           <thead className="bg-card text-left">
             <tr>
-              <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">EMAIL</th>
-              <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">ADDED BY</th>
-              <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40 w-px">ACTIONS</th>
+              <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">
+                EMAIL
+              </th>
+              <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">
+                ADDED BY
+              </th>
+              <th className="w-px px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">
+                ACTIONS
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -140,12 +149,12 @@ export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
               <tr className="border-t border-border align-top">
                 <td className="px-4 py-3 text-cream">
                   {bootstrapEmail}
-                  <span className="ml-2 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-mono tracking-wider text-gold">
+                  <span className="ml-2 inline-block rounded-full bg-gold/15 px-2 py-0.5 font-mono text-[10px] tracking-wider text-gold">
                     BOOTSTRAP
                   </span>
                 </td>
                 <td className="px-4 py-3 text-cream-40">env</td>
-                <td className="px-4 py-3 text-cream-40 whitespace-nowrap">—</td>
+                <td className="whitespace-nowrap px-4 py-3 text-cream-40">—</td>
               </tr>
             )}
             {rows.length === 0 && !bootstrapEmail && (
@@ -163,13 +172,13 @@ export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
                   <td className="px-4 py-3 text-cream">
                     {row.email}
                     {isMe && (
-                      <span className="ml-2 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-mono tracking-wider text-gold">
+                      <span className="ml-2 inline-block rounded-full bg-gold/15 px-2 py-0.5 font-mono text-[10px] tracking-wider text-gold">
                         YOU
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-cream-70">{row.createdBy ?? "—"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td className="whitespace-nowrap px-4 py-3">
                     <Button
                       size="sm"
                       variant="secondary"

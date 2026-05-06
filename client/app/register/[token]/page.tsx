@@ -27,7 +27,11 @@ export default async function RegisterPage({ params }: PageProps) {
   }
   if (doc.status === "rejected") {
     return (
-      <Shell label="REGISTRATION CLOSED" title={register.finalisedTitle} body={register.finalisedBody} />
+      <Shell
+        label="REGISTRATION CLOSED"
+        title={register.finalisedTitle}
+        body={register.finalisedBody}
+      />
     );
   }
   if (doc.status === "otp_verified") {
@@ -77,10 +81,8 @@ function FinalScreen({ variant }: { variant: "waitlist" | "confirmed" }) {
       <section className="flex-1 border-b border-border">
         <div className="container max-w-2xl py-16 md:py-24">
           <div className="animate-fade-up">
-            <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">
-              {block.label}
-            </p>
-            <h1 className="mt-3 font-heading text-4xl font-bold leading-tight text-cream md:text-5xl text-balance">
+            <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">{block.label}</p>
+            <h1 className="mt-3 text-balance font-heading text-4xl font-bold leading-tight text-cream md:text-5xl">
               {block.title}
             </h1>
             <p className="mt-5 max-w-lg font-sans text-base text-cream-70 md:text-lg">
@@ -103,7 +105,7 @@ function FinalScreen({ variant }: { variant: "waitlist" | "confirmed" }) {
             </div>
             <Link
               href="/"
-              className="mt-10 inline-flex items-center gap-2 font-sans text-sm text-cream-70 hover:text-gold transition-colors"
+              className="mt-10 inline-flex items-center gap-2 font-sans text-sm text-cream-70 transition-colors hover:text-gold"
             >
               ← {block.backLink}
             </Link>

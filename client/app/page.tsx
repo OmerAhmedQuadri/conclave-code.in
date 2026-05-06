@@ -23,10 +23,8 @@ export default function Page() {
       <section className="border-b border-border">
         <div className="container max-w-4xl py-12 md:py-16">
           <div className="grid gap-10 md:grid-cols-[1fr_280px] md:gap-16">
-            <div className="animate-fade-up space-y-6 max-w-xl">
-              <p className="font-sans text-base text-cream-70 md:text-lg">
-                {landing.note}
-              </p>
+            <div className="max-w-xl animate-fade-up space-y-6">
+              <p className="font-sans text-base text-cream-70 md:text-lg">{landing.note}</p>
               <div className="flex flex-wrap items-center gap-3">
                 <Button asChild size="lg">
                   <Link href="/request-invite">{landing.primaryCta}</Link>
@@ -59,11 +57,9 @@ export default function Page() {
       <FaqSection />
 
       <section className="border-b border-border">
-        <div className="container max-w-4xl py-16 md:py-20 text-center">
-          <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">
-            {landing.label}
-          </p>
-          <h2 className="mt-3 font-heading text-3xl font-bold leading-tight text-cream md:text-4xl text-balance">
+        <div className="container max-w-4xl py-16 text-center md:py-20">
+          <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">{landing.label}</p>
+          <h2 className="mt-3 text-balance font-heading text-3xl font-bold leading-tight text-cream md:text-4xl">
             {landing.closingTitle}
           </h2>
           <p className="mx-auto mt-4 max-w-xl font-sans text-base text-cream-70">

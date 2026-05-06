@@ -26,13 +26,18 @@ export async function POST(request: Request) {
   const existing = await col.findOne({ email });
   if (existing) {
     if (existing.status === "requested") {
-      return NextResponse.json(
-        { ok: true, message: "We already have your request — we'll be in touch." },
-      );
+      return NextResponse.json({
+        ok: true,
+        message: "We already have your request — we'll be in touch.",
+      });
     }
     return NextResponse.json(
-      { ok: false, message: "This email is already in our system. Please check your inbox or contact us on WhatsApp." },
-      { status: 409 },
+      {
+        ok: false,
+        message:
+          "This email is already in our system. Please check your inbox or contact us on WhatsApp.",
+      },
+      { status: 409 }
     );
   }
 

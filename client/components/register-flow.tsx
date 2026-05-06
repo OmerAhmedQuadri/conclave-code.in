@@ -37,15 +37,7 @@ export function RegisterFlow({ token, email, name, initialPhase }: RegisterFlowP
 
 /* ─────────────────── form step ─────────────────── */
 
-function FormStep({
-  token,
-  name,
-  onSent,
-}: {
-  token: string;
-  name?: string;
-  onSent: () => void;
-}) {
+function FormStep({ token, name, onSent }: { token: string; name?: string; onSent: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -176,9 +168,7 @@ function FormStep({
       </FieldGroup>
 
       <div className="flex flex-col gap-4 border-t border-border pt-8 sm:flex-row sm:items-center sm:justify-between">
-        <p className="font-sans text-xs text-cream-40 sm:max-w-sm">
-          {content.form.privacyNote}
-        </p>
+        <p className="font-sans text-xs text-cream-40 sm:max-w-sm">{content.form.privacyNote}</p>
         <Button type="submit" size="lg" disabled={submitting}>
           {submitting ? content.form.submitting : content.form.submit}
         </Button>
@@ -260,7 +250,7 @@ function OtpStep({ token, email }: { token: string; email: string }) {
         </p>
       </div>
 
-      <div className="grid gap-2 max-w-xs">
+      <div className="grid max-w-xs gap-2">
         <Label htmlFor="otp">6-digit code</Label>
         <Input
           id="otp"
@@ -302,9 +292,7 @@ function OtpStep({ token, email }: { token: string; email: string }) {
 function FieldGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <fieldset className="space-y-5">
-      <legend className="font-mono text-xs font-bold tracking-[0.25em] text-gold">
-        {title}
-      </legend>
+      <legend className="font-mono text-xs font-bold tracking-[0.25em] text-gold">{title}</legend>
       <div className="space-y-5">{children}</div>
     </fieldset>
   );
@@ -347,15 +335,7 @@ interface SelectFieldProps {
   error?: string;
 }
 
-function SelectField({
-  id,
-  label,
-  placeholder,
-  control,
-  name,
-  options,
-  error,
-}: SelectFieldProps) {
+function SelectField({ id, label, placeholder, control, name, options, error }: SelectFieldProps) {
   return (
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>

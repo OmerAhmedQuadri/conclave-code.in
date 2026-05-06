@@ -106,15 +106,11 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
   };
 
   return (
-    <main className="container max-w-5xl py-10 md:py-14 space-y-10">
+    <main className="container max-w-5xl space-y-10 py-10 md:py-14">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">
-            INVITEES
-          </p>
-          <h1 className="mt-2 font-heading text-3xl font-bold text-cream">
-            {rows.length} total
-          </h1>
+          <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">INVITEES</p>
+          <h1 className="mt-2 font-heading text-3xl font-bold text-cream">{rows.length} total</h1>
           <p className="mt-1 font-sans text-sm text-cream-70">
             {requestedCount} new requests · {pendingReviewCount} pending review
           </p>
@@ -125,16 +121,26 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
 
       <section className="space-y-4">
         <div className="flex flex-wrap gap-2">
-          {(["all", "requested", "otp_verified", "registered", "invited", "approved", "rejected"] as const).map((f) => (
+          {(
+            [
+              "all",
+              "requested",
+              "otp_verified",
+              "registered",
+              "invited",
+              "approved",
+              "rejected",
+            ] as const
+          ).map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => setFilter(f)}
               className={cn(
-                "rounded-full px-3 py-1 font-mono text-xs uppercase tracking-wider border transition-colors",
+                "rounded-full border px-3 py-1 font-mono text-xs uppercase tracking-wider transition-colors",
                 filter === f
-                  ? "border-gold text-gold bg-gold/10"
-                  : "border-border text-cream-70 hover:border-gold/40",
+                  ? "border-gold bg-gold/10 text-gold"
+                  : "border-border text-cream-70 hover:border-gold/40"
               )}
             >
               {f === "all" ? "All" : statusLabels[f]}
@@ -143,19 +149,30 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
         </div>
 
         {error && (
-          <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+          <p
+            className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+            role="alert"
+          >
             {error}
           </p>
         )}
 
-        <div className="rounded-md border border-border overflow-hidden">
+        <div className="overflow-hidden rounded-md border border-border">
           <table className="w-full text-sm">
             <thead className="bg-card text-left">
               <tr>
-                <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">EMAIL</th>
-                <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">NAME</th>
-                <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">STATUS</th>
-                <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40 w-px">ACTIONS</th>
+                <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">
+                  EMAIL
+                </th>
+                <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">
+                  NAME
+                </th>
+                <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">
+                  STATUS
+                </th>
+                <th className="w-px px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">
+                  ACTIONS
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -208,11 +225,16 @@ function Row({
         <td className="px-4 py-3 text-cream">{row.email}</td>
         <td className="px-4 py-3 text-cream-70">{row.name ?? "—"}</td>
         <td className="px-4 py-3">
-          <span className={cn("inline-block rounded-full px-2 py-0.5 text-xs font-medium", statusColors[row.status])}>
+          <span
+            className={cn(
+              "inline-block rounded-full px-2 py-0.5 text-xs font-medium",
+              statusColors[row.status]
+            )}
+          >
             {statusLabels[row.status]}
           </span>
         </td>
-        <td className="px-4 py-3 whitespace-nowrap">
+        <td className="whitespace-nowrap px-4 py-3">
           <div className="flex gap-2">
             {hasDetails && (
               <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)}>
@@ -257,15 +279,19 @@ function Row({
           <td colSpan={4} className="px-4 py-4">
             {row.reason && (
               <div className="mb-4 grid gap-0.5">
-                <dt className="font-mono text-[10px] tracking-[0.2em] text-cream-40 uppercase">REQUEST NOTE</dt>
-                <dd className="text-sm text-cream-70 whitespace-pre-wrap">{row.reason}</dd>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-cream-40">
+                  REQUEST NOTE
+                </dt>
+                <dd className="whitespace-pre-wrap text-sm text-cream-70">{row.reason}</dd>
               </div>
             )}
             {row.formData && (
               <dl className="grid gap-3 sm:grid-cols-2">
                 {Object.entries(row.formData).map(([k, v]) => (
                   <div key={k} className="grid gap-0.5">
-                    <dt className="font-mono text-[10px] tracking-[0.2em] text-cream-40 uppercase">{k}</dt>
+                    <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-cream-40">
+                      {k}
+                    </dt>
                     <dd className="text-sm text-cream">{String(v) || "—"}</dd>
                   </div>
                 ))}
@@ -301,7 +327,10 @@ function InviteForm({ onSent }: { onSent: () => void }) {
       setName("");
       onSent();
     } catch (err) {
-      setFeedback({ type: "err", message: err instanceof Error ? err.message : "Something went wrong" });
+      setFeedback({
+        type: "err",
+        message: err instanceof Error ? err.message : "Something went wrong",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -309,10 +338,11 @@ function InviteForm({ onSent }: { onSent: () => void }) {
 
   return (
     <section className="rounded-md border border-border bg-card p-6 md:p-8">
-      <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">
-        SEND NEW INVITATION
-      </p>
-      <form onSubmit={onSubmit} className="mt-5 grid gap-4 sm:grid-cols-[2fr_2fr_auto] sm:items-end">
+      <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">SEND NEW INVITATION</p>
+      <form
+        onSubmit={onSubmit}
+        className="mt-5 grid gap-4 sm:grid-cols-[2fr_2fr_auto] sm:items-end"
+      >
         <div className="grid gap-2">
           <Label htmlFor="invite-email">Email</Label>
           <Input
@@ -343,7 +373,7 @@ function InviteForm({ onSent }: { onSent: () => void }) {
             "mt-4 rounded-md border p-3 text-sm",
             feedback.type === "ok"
               ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-              : "border-destructive/40 bg-destructive/10 text-destructive",
+              : "border-destructive/40 bg-destructive/10 text-destructive"
           )}
           role={feedback.type === "err" ? "alert" : undefined}
         >

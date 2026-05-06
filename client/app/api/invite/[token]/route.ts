@@ -2,10 +2,7 @@ import { NextResponse } from "next/server";
 import type { InviteePublicResponse } from "@/models/invitee";
 import { invitees } from "@/lib/db";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ token: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const doc = await (await invitees()).findOne({ token });
   if (!doc) {

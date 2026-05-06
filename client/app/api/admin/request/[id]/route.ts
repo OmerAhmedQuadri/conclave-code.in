@@ -3,10 +3,7 @@ import { ObjectId } from "mongodb";
 import { isAdmin } from "@/lib/admin-auth";
 import { invitees } from "@/lib/db";
 
-export async function DELETE(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAdmin())) {
     return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   }
@@ -23,7 +20,7 @@ export async function DELETE(
   if (res.deletedCount === 0) {
     return NextResponse.json(
       { ok: false, message: "Request not found or already actioned" },
-      { status: 404 },
+      { status: 404 }
     );
   }
   return NextResponse.json({ ok: true });

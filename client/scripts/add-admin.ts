@@ -8,8 +8,8 @@ function hashPassword(password: string): string {
 }
 
 async function main() {
-  const email  = "syedomerali2006@gmail.com"
-  const password = "omer@123"
+  const email = "syedomerali2006@gmail.com";
+  const password = "omer@123";
 
   if (!email || !password) {
     console.error("Usage: tsx scripts/add-admin.ts <email> <password>");
@@ -33,7 +33,7 @@ async function main() {
         $set: { email: newemail, passwordHash, role: "admin" },
         $setOnInsert: { createdAt: new Date(), createdBy: "script" },
       },
-      { upsert: true },
+      { upsert: true }
     );
     console.log(`Admin upserted: ${email}`);
   } finally {

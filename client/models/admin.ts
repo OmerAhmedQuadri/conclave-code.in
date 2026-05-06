@@ -28,6 +28,4 @@ export type AdminListResponse =
   | { ok: true; bootstrapEmail: string | null; admins: AdminListItem[] }
   | { ok: false; message: string };
 
-export type AdminMutationResponse =
-  | { ok: true }
-  | { ok: false; message: string };
+export type AdminMutationResponse = { ok: true } | { ok: false; message: string };

@@ -30,14 +30,14 @@ export async function POST(request: Request) {
   if (doc.status !== "otp_verified") {
     return NextResponse.json(
       { ok: false, message: `Cannot decide on status "${doc.status}"` },
-      { status: 409 },
+      { status: 409 }
     );
   }
 
   const newStatus = parsed.data.decision === "approve" ? "approved" : "rejected";
   await col.updateOne(
     { token: parsed.data.token },
-    { $set: { status: newStatus, decidedAt: new Date(), decidedBy: adminEmail } },
+    { $set: { status: newStatus, decidedAt: new Date(), decidedBy: adminEmail } }
   );
 
   if (newStatus === "approved") {

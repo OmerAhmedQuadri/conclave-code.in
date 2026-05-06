@@ -74,7 +74,10 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ ok: false, message: "email required" }, { status: 422 });
   }
   if (target === process.env.ADMIN_EMAIL?.toLowerCase()) {
-    return NextResponse.json({ ok: false, message: "Cannot remove bootstrap admin" }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, message: "Cannot remove bootstrap admin" },
+      { status: 400 }
+    );
   }
   if (target === adminEmail) {
     return NextResponse.json({ ok: false, message: "Cannot remove yourself" }, { status: 400 });

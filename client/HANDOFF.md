@@ -41,13 +41,13 @@ There is no self-serve registration anywhere. The public landing page (`/`) only
 
 Every invitee record moves through these states (`InviteeDoc.status` in MongoDB):
 
-| Status         | Meaning                                                                |
-| -------------- | ---------------------------------------------------------------------- |
-| `invited`      | Admin sent the invite email; invitee hasn't opened the link yet        |
-| `registered`   | Invitee submitted the form; OTP was emailed; awaiting OTP entry        |
+| Status         | Meaning                                                                 |
+| -------------- | ----------------------------------------------------------------------- |
+| `invited`      | Admin sent the invite email; invitee hasn't opened the link yet         |
+| `registered`   | Invitee submitted the form; OTP was emailed; awaiting OTP entry         |
 | `otp_verified` | OTP verified — invitee is now on the **waitlist** awaiting admin review |
-| `approved`     | Admin approved → confirmation email sent → seat confirmed              |
-| `rejected`     | Admin rejected → no email sent                                         |
+| `approved`     | Admin approved → confirmation email sent → seat confirmed               |
+| `rejected`     | Admin rejected → no email sent                                          |
 
 Approval is **manual**. The admin team uses `/admin` to review and approve.
 
@@ -57,35 +57,35 @@ Approval is **manual**. The admin team uses `/admin` to review and approve.
 
 ### Public
 
-| Route                  | Method | Purpose                                                 |
-| ---------------------- | ------ | ------------------------------------------------------- |
-| `/`                    | GET    | "Invitation-only" landing page                          |
-| `/register/[token]`    | GET    | Token-gated registration page (renders one of: form, OTP step, waitlist screen, confirmation screen, "invalid" screen — based on the invitee's current status) |
+| Route               | Method | Purpose                                                                                                                                                        |
+| ------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                 | GET    | "Invitation-only" landing page                                                                                                                                 |
+| `/register/[token]` | GET    | Token-gated registration page (renders one of: form, OTP step, waitlist screen, confirmation screen, "invalid" screen — based on the invitee's current status) |
 
 ### Admin (cookie-session gated)
 
-| Route                | Method | Purpose                              |
-| -------------------- | ------ | ------------------------------------ |
-| `/admin/login`       | GET    | Sign-in form                         |
-| `/admin`             | GET    | Invitee dashboard (queue + send invite) |
-| `/admin/admins`      | GET    | Manage admin accounts                |
+| Route           | Method | Purpose                                 |
+| --------------- | ------ | --------------------------------------- |
+| `/admin/login`  | GET    | Sign-in form                            |
+| `/admin`        | GET    | Invitee dashboard (queue + send invite) |
+| `/admin/admins` | GET    | Manage admin accounts                   |
 
 ### API
 
-| Route                       | Method | Auth   | Purpose                                       |
-| --------------------------- | ------ | ------ | --------------------------------------------- |
-| `/api/admin/login`          | POST   | —      | `{ email, password }` → sets session cookie   |
-| `/api/admin/logout`         | POST   | —      | Clears session cookie                         |
-| `/api/admin/invite`         | POST   | admin  | `{ email, name? }` → creates invite, sends email |
-| `/api/admin/invitees`       | GET    | admin  | List all invitees                             |
-| `/api/admin/decide`         | POST   | admin  | `{ token, decision: "approve" \| "reject" }` |
-| `/api/admin/admins`         | GET    | admin  | List admin accounts                           |
-| `/api/admin/admins`         | POST   | admin  | `{ email, password }` → add admin             |
-| `/api/admin/admins?email=…` | DELETE | admin  | Remove admin                                  |
-| `/api/invite/[token]`       | GET    | public | Public lookup of invite state (for SSR)       |
+| Route                       | Method | Auth   | Purpose                                           |
+| --------------------------- | ------ | ------ | ------------------------------------------------- |
+| `/api/admin/login`          | POST   | —      | `{ email, password }` → sets session cookie       |
+| `/api/admin/logout`         | POST   | —      | Clears session cookie                             |
+| `/api/admin/invite`         | POST   | admin  | `{ email, name? }` → creates invite, sends email  |
+| `/api/admin/invitees`       | GET    | admin  | List all invitees                                 |
+| `/api/admin/decide`         | POST   | admin  | `{ token, decision: "approve" \| "reject" }`      |
+| `/api/admin/admins`         | GET    | admin  | List admin accounts                               |
+| `/api/admin/admins`         | POST   | admin  | `{ email, password }` → add admin                 |
+| `/api/admin/admins?email=…` | DELETE | admin  | Remove admin                                      |
+| `/api/invite/[token]`       | GET    | public | Public lookup of invite state (for SSR)           |
 | `/api/register`             | POST   | token  | `{ token, data: registrationFields }` → sends OTP |
-| `/api/verify-otp`           | POST   | token  | `{ token, otp }` → marks `otp_verified`       |
-| `/api/resend-otp`           | POST   | token  | `{ token }` → emails a fresh OTP              |
+| `/api/verify-otp`           | POST   | token  | `{ token, otp }` → marks `otp_verified`           |
+| `/api/resend-otp`           | POST   | token  | `{ token }` → emails a fresh OTP                  |
 
 "`token` auth" means the request must reference a valid invite token in the body; no cookie required.
 
@@ -155,25 +155,26 @@ Indexes: `{ email: 1 }` unique.
 
 Copy `.env.example` to `.env.local` and fill in:
 
-| Variable                  | Required | Description                                                         |
-| ------------------------- | -------- | ------------------------------------------------------------------- |
-| `MONGODB_URI`             | yes      | MongoDB connection string. Atlas: `mongodb+srv://user:pass@…`       |
-| `MONGODB_DB`              | no       | DB name. Default `fe-conclave`                                      |
-| `SMTP_HOST`               | yes      | SMTP server (Gmail: `smtp.gmail.com`, SES: `email-smtp.<region>.amazonaws.com`) |
-| `SMTP_PORT`               | yes      | Usually `587` (STARTTLS) or `465` (TLS)                             |
-| `SMTP_USER`               | yes      | SMTP username                                                       |
-| `SMTP_PASS`               | yes      | SMTP password / app password                                        |
-| `MAIL_FROM`               | no       | From address. Default: `SMTP_USER`. Recommended: `"Future Engineers Conclave <noreply@yourdomain.com>"` |
-| `ADMIN_EMAIL`             | yes      | Bootstrap admin email                                               |
-| `ADMIN_PASSWORD`          | yes      | Bootstrap admin password (≥8 chars, strong)                         |
-| `ADMIN_SESSION_SECRET`    | yes      | ≥16 char random secret. Generate: `openssl rand -base64 32`         |
-| `NEXT_PUBLIC_WHATSAPP_NUMBER` | no  | Footer WhatsApp link                                                |
-| `NEXT_PUBLIC_EVENT_START_ISO` | no  | ISO timestamp; used in calendar links                               |
-| `NEXT_PUBLIC_EVENT_END_ISO`   | no  | ISO timestamp; used in calendar links                               |
+| Variable                      | Required | Description                                                                                             |
+| ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| `MONGODB_URI`                 | yes      | MongoDB connection string. Atlas: `mongodb+srv://user:pass@…`                                           |
+| `MONGODB_DB`                  | no       | DB name. Default `fe-conclave`                                                                          |
+| `SMTP_HOST`                   | yes      | SMTP server (Gmail: `smtp.gmail.com`, SES: `email-smtp.<region>.amazonaws.com`)                         |
+| `SMTP_PORT`                   | yes      | Usually `587` (STARTTLS) or `465` (TLS)                                                                 |
+| `SMTP_USER`                   | yes      | SMTP username                                                                                           |
+| `SMTP_PASS`                   | yes      | SMTP password / app password                                                                            |
+| `MAIL_FROM`                   | no       | From address. Default: `SMTP_USER`. Recommended: `"Future Engineers Conclave <noreply@yourdomain.com>"` |
+| `ADMIN_EMAIL`                 | yes      | Bootstrap admin email                                                                                   |
+| `ADMIN_PASSWORD`              | yes      | Bootstrap admin password (≥8 chars, strong)                                                             |
+| `ADMIN_SESSION_SECRET`        | yes      | ≥16 char random secret. Generate: `openssl rand -base64 32`                                             |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | no       | Footer WhatsApp link                                                                                    |
+| `NEXT_PUBLIC_EVENT_START_ISO` | no       | ISO timestamp; used in calendar links                                                                   |
+| `NEXT_PUBLIC_EVENT_END_ISO`   | no       | ISO timestamp; used in calendar links                                                                   |
 
 ### Gmail SMTP setup
 
 Regular passwords no longer work. You need an [App Password](https://myaccount.google.com/apppasswords):
+
 1. Enable 2-Step Verification on the Google account
 2. Generate a 16-char app password
 3. Use that as `SMTP_PASS`
@@ -181,6 +182,7 @@ Regular passwords no longer work. You need an [App Password](https://myaccount.g
 ### Production email recommendation
 
 For production volume, **don't use Gmail** — you'll hit limits and deliverability issues. Use one of:
+
 - **Mailgun** / **SendGrid** / **Postmark** (transactional email, ~free tier covers a few thousand sends/month)
 - **AWS SES** (cheapest at scale; needs domain verification)
 - **Resend** (developer-friendly; requires domain verification)
@@ -200,6 +202,7 @@ npm run dev                       # http://localhost:3000
 ```
 
 For local MongoDB:
+
 ```bash
 brew install mongodb-community    # macOS
 brew services start mongodb-community
@@ -316,6 +319,7 @@ The three email templates (invite / OTP / confirmation) are inline in `lib/maile
 ### Bootstrap admin
 
 The env-based admin (`ADMIN_EMAIL` + `ADMIN_PASSWORD`) is **always valid** regardless of the `admins` collection. This is intentional:
+
 - First sign-in works before any DB row exists
 - Recovery path if all DB admins are deleted
 
@@ -361,6 +365,7 @@ Requires Node 20+. Make sure all env vars are set in the hosting environment.
 ### MongoDB Atlas
 
 For production:
+
 - Create an M10+ cluster (M0 free tier is fine for dev/staging only)
 - IP allowlist: add your Vercel/host egress IPs (or `0.0.0.0/0` if you trust the password — Atlas connections are TLS by default)
 - Use a dedicated DB user with read/write access only to the project DB (not admin)
@@ -405,6 +410,7 @@ These are **not done yet** — recommended before public launch:
 ## 13. Quick reference: how to do common things
 
 **Send an invite from a script (instead of UI):**
+
 ```bash
 curl -X POST http://localhost:3000/api/admin/invite \
   -H "Cookie: fec_admin=<your session cookie>" \
@@ -415,23 +421,27 @@ curl -X POST http://localhost:3000/api/admin/invite \
 **Bulk invite from a CSV:** there's no built-in import; loop over rows in a Node script and call `/api/admin/invite` for each. Easy to add if needed.
 
 **Manually mark someone approved:** in `mongosh`:
+
 ```js
 db.invitees.updateOne(
   { email: "parent@example.com" },
   { $set: { status: "approved", decidedAt: new Date(), decidedBy: "manual" } }
-)
+);
 ```
+
 (This skips the OTP step — but no confirmation email will be sent. Use the UI if you want the email.)
 
 **Reset OTP attempts:** in `mongosh`:
+
 ```js
-db.invitees.updateOne({ email: "x" }, { $set: { otpAttempts: 0 } })
+db.invitees.updateOne({ email: "x" }, { $set: { otpAttempts: 0 } });
 ```
 
 **Reset all data (dev only):**
+
 ```js
-db.invitees.deleteMany({})
-db.admins.deleteMany({})
+db.invitees.deleteMany({});
+db.admins.deleteMany({});
 ```
 
 ---

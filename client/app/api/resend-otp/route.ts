@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const otp = generateOtp();
   await col.updateOne(
     { token: parsed.data.token },
-    { $set: { otp, otpExpiresAt: new Date(Date.now() + OTP_TTL_MS), otpAttempts: 0 } },
+    { $set: { otp, otpExpiresAt: new Date(Date.now() + OTP_TTL_MS), otpAttempts: 0 } }
   );
 
   try {

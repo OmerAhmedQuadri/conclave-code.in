@@ -3,6 +3,7 @@
 An invitation-only registration system for the **Future Engineers Conclave**, presented by code.in.
 
 **Flow:**
+
 1. Admin sends an invite from `/admin` → email goes out with a unique link
 2. Invitee opens link → fills registration form → receives a 6-digit OTP
 3. Invitee verifies OTP → status moves to "pending review"
@@ -25,6 +26,7 @@ npm run dev
 ```
 
 Visit:
+
 - `/` — public landing (invite-only message)
 - `/admin/login` — admin sign in
 - `/admin` — invitee queue, send invites
@@ -32,18 +34,19 @@ Visit:
 
 ## Environment variables
 
-| Variable | Required | What it does |
-|---|---|---|
-| `MONGODB_URI` | yes | MongoDB connection string |
-| `MONGODB_DB` | optional | DB name (default: `fe-conclave`) |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | yes | SMTP creds for Nodemailer |
-| `MAIL_FROM` | optional | From address (defaults to `SMTP_USER`) |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | yes | Bootstrap admin credentials |
-| `ADMIN_SESSION_SECRET` | yes | ≥16-char secret for signed cookie sessions |
-| `NEXT_PUBLIC_WHATSAPP_NUMBER` | optional | Footer link |
-| `NEXT_PUBLIC_EVENT_START_ISO` / `NEXT_PUBLIC_EVENT_END_ISO` | optional | Calendar links |
+| Variable                                                    | Required | What it does                               |
+| ----------------------------------------------------------- | -------- | ------------------------------------------ |
+| `MONGODB_URI`                                               | yes      | MongoDB connection string                  |
+| `MONGODB_DB`                                                | optional | DB name (default: `fe-conclave`)           |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS`       | yes      | SMTP creds for Nodemailer                  |
+| `MAIL_FROM`                                                 | optional | From address (defaults to `SMTP_USER`)     |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD`                            | yes      | Bootstrap admin credentials                |
+| `ADMIN_SESSION_SECRET`                                      | yes      | ≥16-char secret for signed cookie sessions |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER`                               | optional | Footer link                                |
+| `NEXT_PUBLIC_EVENT_START_ISO` / `NEXT_PUBLIC_EVENT_END_ISO` | optional | Calendar links                             |
 
 Generate `ADMIN_SESSION_SECRET` with:
+
 ```bash
 openssl rand -base64 32
 ```

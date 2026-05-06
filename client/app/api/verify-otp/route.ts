@@ -28,12 +28,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Please register first" }, { status: 409 });
   }
   if (doc.otpExpiresAt.getTime() < Date.now()) {
-    return NextResponse.json({ ok: false, message: "Code expired — request a new one" }, { status: 410 });
+    return NextResponse.json(
+      { ok: false, message: "Code expired — request a new one" },
+      { status: 410 }
+    );
   }
   if ((doc.otpAttempts ?? 0) >= OTP_MAX_ATTEMPTS) {
     return NextResponse.json(
       { ok: false, message: "Too many attempts — request a new code" },
-      { status: 429 },
+      { status: 429 }
     );
   }
 
@@ -47,7 +50,7 @@ export async function POST(request: Request) {
     {
       $set: { status: "otp_verified", verifiedAt: new Date() },
       $unset: { otp: "", otpExpiresAt: "", otpAttempts: "" },
-    },
+    }
   );
 
   return NextResponse.json({ ok: true });

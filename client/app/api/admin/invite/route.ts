@@ -48,7 +48,7 @@ export async function POST(request: Request) {
           invitedAt: new Date(),
           ...(name && !existing.name ? { name } : {}),
         },
-      },
+      }
     );
     return NextResponse.json({ ok: true, inviteUrl, upgraded: true });
   }
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   if (existing) {
     return NextResponse.json(
       { ok: false, message: `Already in system (${existing.status})` },
-      { status: 409 },
+      { status: 409 }
     );
   }
 

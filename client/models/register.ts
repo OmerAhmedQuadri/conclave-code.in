@@ -31,6 +31,4 @@ export interface RegisteredInviteeDoc {
   registeredAt?: Date;
 }
 
-export type RegisterResponse =
-  | { ok: true; email: string }
-  | { ok: false; message: string };
+export type RegisterResponse = { ok: true; email: string } | { ok: false; message: string };
