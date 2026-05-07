@@ -72,6 +72,50 @@ export async function sendOtpEmail(args: { to: string; otp: string }) {
   await send({ to: args.to, subject: `Your verification code: ${args.otp}`, html, text });
 }
 
+export async function sendNewRequestNotification(args: {
+  to: string | string[];
+  name: string;
+  email: string;
+  city?: string;
+  reason?: string;
+}) {
+  const recipients = Array.isArray(args.to) ? args.to : [args.to];
+  if (recipients.length === 0) return;
+
+  const cityRow = args.city
+    ? `<tr><td style="font-size:14px;color:#cfcfc8;padding-bottom:8px;"><strong style="color:#D4A843;">City:</strong> ${args.city}</td></tr>`
+    : "";
+  const reasonRow = args.reason
+    ? `<tr><td style="font-size:14px;color:#cfcfc8;padding-bottom:8px;"><strong style="color:#D4A843;">Reason:</strong> ${args.reason}</td></tr>`
+    : "";
+
+  const html = wrap(`
+    <tr><td style="font-size:20px;font-weight:600;line-height:1.3;padding-bottom:16px;">New invite request received</td></tr>
+    <tr><td style="font-size:15px;line-height:1.6;color:#cfcfc8;padding-bottom:20px;">Someone just submitted a request to attend the Future Engineers Conclave.</td></tr>
+    <tr><td style="font-size:14px;color:#cfcfc8;padding-bottom:8px;"><strong style="color:#D4A843;">Name:</strong> ${args.name}</td></tr>
+    <tr><td style="font-size:14px;color:#cfcfc8;padding-bottom:8px;"><strong style="color:#D4A843;">Email:</strong> ${args.email}</td></tr>
+    ${cityRow}
+    ${reasonRow}
+    <tr><td style="padding-top:20px;font-size:13px;color:#8a8a85;">Log in to the admin panel to review and decide.</td></tr>
+  `);
+  const text = [
+    "New invite request received",
+    "",
+    `Name:   ${args.name}`,
+    `Email:  ${args.email}`,
+    args.city ? `City:   ${args.city}` : null,
+    args.reason ? `Reason: ${args.reason}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  await Promise.all(
+    recipients.map((to) =>
+      send({ to, subject: `New invite request · ${args.name}`, html, text })
+    )
+  );
+}
+
 export async function sendConfirmationEmail(args: { to: string; name?: string }) {
   const greeting = args.name ? `Dear ${args.name},` : "Hello,";
   const html = wrap(`

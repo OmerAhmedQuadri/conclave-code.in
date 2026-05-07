@@ -70,9 +70,16 @@ interface ParsedSession {
 }
 
 function parseToken(token: string): ParsedSession {
-  const parts = token.split(".");
-  if (parts.length !== 3) return { valid: false };
-  const [emailEnc, expStr, sig] = parts;
+  // Split from the right: signature is last segment, expiry is second-last,
+  // everything before is the (URL-encoded) email which may itself contain dots.
+  const lastDot = token.lastIndexOf(".");
+  if (lastDot === -1) return { valid: false };
+  const sig = token.slice(lastDot + 1);
+  const rest = token.slice(0, lastDot);
+  const secondLastDot = rest.lastIndexOf(".");
+  if (secondLastDot === -1) return { valid: false };
+  const expStr = rest.slice(secondLastDot + 1);
+  const emailEnc = rest.slice(0, secondLastDot);
   const payload = `${emailEnc}.${expStr}`;
   const expected = sign(payload);
   if (!safeEqualStr(sig, expected)) return { valid: false };

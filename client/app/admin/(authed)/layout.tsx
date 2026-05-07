@@ -22,8 +22,8 @@ export default async function AuthedAdminLayout({ children }: { children: React.
               </span>
             </Link>
             <nav className="flex gap-4 font-mono text-xs tracking-[0.2em] text-cream-70">
-              <Link href="/admin" className="transition-colors hover:text-gold">
-                INVITEES
+              <Link href="/admin/dashboard" className="transition-colors hover:text-gold">
+                DASHBOARD
               </Link>
               <Link href="/admin/admins" className="transition-colors hover:text-gold">
                 ADMINS

@@ -15,6 +15,7 @@ export interface InviteeDoc {
   name?: string;
   token: string;
   status: InviteeStatus;
+  source?: "admin" | "portal";
   otp?: string;
   otpExpiresAt?: Date;
   otpAttempts?: number;
@@ -34,8 +35,11 @@ export interface InviteeListItem {
   email: string;
   name?: string;
   status: InviteeStatus;
+  source?: "admin" | "portal";
   token: string;
   reason?: string;
+  invitedBy?: string;
+  decidedBy?: string;
   requestedAt?: Date;
   invitedAt?: Date;
   registeredAt?: Date;

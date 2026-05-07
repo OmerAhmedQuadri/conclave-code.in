@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requestInviteSchema } from "@/models/request-invite";
-import { invitees } from "@/lib/db";
+import { invitees, admins } from "@/lib/db";
 import { generateInviteToken } from "@/lib/tokens";
+import { sendNewRequestNotification } from "@/lib/mailer";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -46,9 +47,22 @@ export async function POST(request: Request) {
     name,
     token: generateInviteToken(),
     status: "requested",
+    source: "portal",
     reason: reason ? (city ? `[${city}] ${reason}` : reason) : city ? `[${city}]` : undefined,
     requestedAt: new Date(),
   });
+
+  // Notify admins — fire-and-forget so a mail failure never blocks the user
+  (async () => {
+    try {
+      const adminCol = await admins();
+      const adminDocs = await adminCol.find({ role: "admin" }, { projection: { email: 1 } }).toArray();
+      const recipients = adminDocs.map((d) => d.email);
+      await sendNewRequestNotification({ to: recipients, name, email, city, reason });
+    } catch (err) {
+      console.error("[request-invite] admin notification failed:", err);
+    }
+  })();
 
   return NextResponse.json({ ok: true });
 }

@@ -20,12 +20,19 @@ export async function POST(request: Request) {
   }
 
   const email = parsed.data.email.trim().toLowerCase();
-  const user = await (await admins()).findOne({ email });
-  if (!user) {
-    return NextResponse.json({ ok: false, message: "User not found" }, { status: 404 });
+  const password = parsed.data.password;
+
+  // Check bootstrap admin from env first (not stored in DB)
+  const bootstrapEmail = process.env.ADMIN_EMAIL?.toLowerCase();
+  const bootstrapPassword = process.env.ADMIN_PASSWORD;
+  if (bootstrapEmail && bootstrapPassword && email === bootstrapEmail && password === bootstrapPassword) {
+    await setAdminSession(email);
+    return NextResponse.json({ ok: true, email, role: "admin" });
   }
 
-  if (!verifyHash(parsed.data.password, user.passwordHash)) {
+  // Fall through to DB admins
+  const user = await (await admins()).findOne({ email });
+  if (!user || !verifyHash(password, user.passwordHash)) {
     return NextResponse.json({ ok: false, message: "Invalid credentials" }, { status: 401 });
   }
 

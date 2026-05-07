@@ -44,6 +44,7 @@ export async function POST(request: Request) {
       {
         $set: {
           status: "invited",
+          source: "admin",
           invitedBy: adminEmail,
           invitedAt: new Date(),
           ...(name && !existing.name ? { name } : {}),
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
     name,
     token,
     status: "invited",
+    source: "admin",
     invitedBy: adminEmail,
     invitedAt: new Date(),
   });

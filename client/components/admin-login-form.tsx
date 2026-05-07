@@ -25,8 +25,7 @@ export function AdminLoginForm() {
       });
       const json = (await res.json()) as { ok: boolean; message?: string };
       if (!json.ok) throw new Error(json.message ?? "Invalid credentials");
-      router.replace("/admin");
-      router.refresh();
+      router.replace("/admin/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
