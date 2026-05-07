@@ -15,12 +15,18 @@ export async function GET() {
     .sort({ createdAt: -1 })
     .toArray();
 
+  const bootstrapEmail = process.env.ADMIN_EMAIL?.toLowerCase() ?? null;
+  const bootstrapDoc = docs.find((d) => d.isBootstrap);
+  const adminDocs = docs.filter((d) => !d.isBootstrap);
+
   return NextResponse.json({
     ok: true,
-    bootstrapEmail: process.env.ADMIN_EMAIL?.toLowerCase() ?? null,
-    admins: docs.map((d) => ({
+    bootstrapEmail,
+    bootstrapReceiveEmails: bootstrapDoc?.receiveEmails ?? true,
+    admins: adminDocs.map((d) => ({
       id: d._id?.toString(),
       email: d.email,
+      receiveEmails: d.receiveEmails ?? true,
       createdAt: d.createdAt,
       createdBy: d.createdBy,
     })),
@@ -47,8 +53,15 @@ export async function POST(request: Request) {
   }
 
   const email = parsed.data.email.trim().toLowerCase();
+  if (email === process.env.ADMIN_EMAIL?.toLowerCase()) {
+    return NextResponse.json(
+      { ok: false, message: "That email is the bootstrap admin." },
+      { status: 409 }
+    );
+  }
   const col = await admins();
-  if (await col.findOne({ email })) {
+  const existing = await col.findOne({ email });
+  if (existing && !existing.isBootstrap) {
     return NextResponse.json({ ok: false, message: "Admin already exists" }, { status: 409 });
   }
 
@@ -56,6 +69,7 @@ export async function POST(request: Request) {
     email,
     passwordHash: hashPassword(parsed.data.password),
     role: "admin",
+    receiveEmails: true,
     createdAt: new Date(),
     createdBy: adminEmail,
   });

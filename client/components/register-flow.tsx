@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { registrationSchema, type RegistrationFormValues } from "@/lib/validations";
-import { content } from "@/lib/content";
+import {
+  registerSubmitSchema,
+  type RegisterSubmitInput,
+} from "@/models/register";
+import { hearAboutValues, type HearAbout } from "@/models/request-invite";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,49 +20,382 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { saveStatusSession } from "@/components/invitation-status-checker";
 import { cn } from "@/lib/utils";
 
 interface RegisterFlowProps {
   token: string;
   email: string;
   name?: string;
-  initialPhase: "form" | "otp";
 }
 
-export function RegisterFlow({ token, email, name, initialPhase }: RegisterFlowProps) {
-  const [phase, setPhase] = useState<"form" | "otp">(initialPhase);
+type Stage = "accept" | "otp" | "form";
 
-  if (phase === "otp") {
-    return <OtpStep token={token} email={email} />;
-  }
-  return <FormStep token={token} name={name} onSent={() => setPhase("otp")} />;
+const OTHER_SCHOOL = "__other__";
+
+const hearAboutLabels: Record<HearAbout, string> = {
+  school_college: "School / college",
+  instagram: "Instagram",
+  whatsapp: "WhatsApp group",
+  referral: "Referral",
+  other: "Other",
+};
+
+interface SchoolOption {
+  id: string;
+  name: string;
 }
 
-/* ─────────────────── form step ─────────────────── */
+export function RegisterFlow({ token, email: initialEmail, name: invitedName }: RegisterFlowProps) {
+  const [stage, setStage] = useState<Stage>("accept");
+  const [email, setEmail] = useState(initialEmail);
+  const [name, setName] = useState(invitedName ?? "");
+  const [verificationToken, setVerificationToken] = useState<string | null>(null);
 
-function FormStep({ token, name, onSent }: { token: string; name?: string; onSent: () => void }) {
+  return (
+    <div className="space-y-6">
+      {stage === "accept" && (
+        <AcceptStage
+          token={token}
+          name={name}
+          setName={setName}
+          email={email}
+          setEmail={setEmail}
+          originalEmail={initialEmail}
+          onSent={() => setStage("otp")}
+        />
+      )}
+
+      {stage === "otp" && (
+        <OtpStage
+          token={token}
+          email={email}
+          onVerified={(t) => {
+            setVerificationToken(t);
+            setStage("form");
+          }}
+          onEditEmail={() => setStage("accept")}
+        />
+      )}
+
+      {stage === "form" && verificationToken && (
+        <FullFormStage
+          token={token}
+          name={name}
+          email={email}
+          verificationToken={verificationToken}
+          onEditEmail={() => {
+            setVerificationToken(null);
+            setStage("accept");
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AcceptStage({
+  token,
+  name,
+  setName,
+  email,
+  setEmail,
+  originalEmail,
+  onSent,
+}: {
+  token: string;
+  name: string;
+  setName: (v: string) => void;
+  email: string;
+  setEmail: (v: string) => void;
+  originalEmail: string;
+  onSent: () => void;
+}) {
+  const [editingEmail, setEditingEmail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/register/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, email }),
+      });
+      const json = (await res.json()) as { ok: boolean; message?: string };
+      if (!json.ok) throw new Error(json.message ?? "Could not send OTP");
+      onSent();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={onSubmit} noValidate className="space-y-6">
+      <div>
+        <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">YOU&apos;RE INVITED</p>
+        <p className="mt-2 text-sm text-cream-70">
+          Confirm your email to accept your invitation. We&apos;ll send a 6-digit code so we know it&apos;s you.
+        </p>
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="name">Your name</Label>
+        <Input
+          id="name"
+          required
+          minLength={2}
+          maxLength={80}
+          autoComplete="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="As you'd like us to address you"
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="email">Email</Label>
+          {!editingEmail ? (
+            <button
+              type="button"
+              onClick={() => setEditingEmail(true)}
+              className="font-mono text-[10px] uppercase tracking-[0.2em] text-cream-40 hover:text-gold"
+            >
+              Use another email
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setEmail(originalEmail);
+                setEditingEmail(false);
+              }}
+              className="font-mono text-[10px] uppercase tracking-[0.2em] text-cream-40 hover:text-gold"
+            >
+              Use original ({originalEmail})
+            </button>
+          )}
+        </div>
+        <Input
+          id="email"
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          readOnly={!editingEmail}
+          className={cn(!editingEmail && "cursor-not-allowed text-cream-70")}
+        />
+      </div>
+
+      <div className="flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <p className="font-sans text-xs text-cream-40 sm:max-w-sm">
+          A 6-digit code will be sent to {email}.
+        </p>
+        <Button type="submit" size="lg" disabled={submitting}>
+          {submitting ? "Sending..." : "Accept invitation"}
+        </Button>
+      </div>
+
+      {error && (
+        <p
+          className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+    </form>
+  );
+}
+
+function OtpStage({
+  token,
+  email,
+  onVerified,
+  onEditEmail,
+}: {
+  token: string;
+  email: string;
+  onVerified: (vt: string) => void;
+  onEditEmail: () => void;
+}) {
+  const [otp, setOtp] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  const onVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    setInfo(null);
+    try {
+      const res = await fetch("/api/register/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, email, otp }),
+      });
+      const json = (await res.json()) as {
+        ok: boolean;
+        verificationToken?: string;
+        message?: string;
+      };
+      if (!json.ok || !json.verificationToken)
+        throw new Error(json.message ?? "Could not verify");
+      onVerified(json.verificationToken);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onResend = async () => {
+    setResending(true);
+    setError(null);
+    setInfo(null);
+    try {
+      const res = await fetch("/api/register/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, email }),
+      });
+      const json = (await res.json()) as { ok: boolean; message?: string };
+      if (!json.ok) throw new Error(json.message ?? "Could not resend");
+      setInfo("A new code has been sent.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setResending(false);
+    }
+  };
+
+  return (
+    <form onSubmit={onVerify} noValidate className="space-y-6">
+      <div>
+        <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">CHECK YOUR INBOX</p>
+        <p className="mt-2 text-sm text-cream-70">
+          We sent a 6-digit code to <span className="text-cream">{email}</span>.
+        </p>
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="otp">One-time code</Label>
+        <Input
+          id="otp"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          required
+          pattern="\d{6}"
+          maxLength={6}
+          value={otp}
+          onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+          placeholder="123456"
+          className="font-mono tracking-[0.4em]"
+        />
+      </div>
+
+      <div className="flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-3 text-xs text-cream-40">
+          <button type="button" onClick={onResend} disabled={resending} className="hover:text-gold">
+            {resending ? "Resending..." : "Resend code"}
+          </button>
+          <span>·</span>
+          <button type="button" onClick={onEditEmail} className="hover:text-gold">
+            Edit email
+          </button>
+        </div>
+        <Button type="submit" size="lg" disabled={submitting || otp.length !== 6}>
+          {submitting ? "Verifying..." : "Verify email"}
+        </Button>
+      </div>
+
+      {info && (
+        <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-300">
+          {info}
+        </p>
+      )}
+      {error && (
+        <p
+          className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+    </form>
+  );
+}
+
+function FullFormStage({
+  token,
+  name,
+  email,
+  verificationToken,
+  onEditEmail,
+}: {
+  token: string;
+  name: string;
+  email: string;
+  verificationToken: string;
+  onEditEmail: () => void;
+}) {
+  const router = useRouter();
+  const [schoolOptions, setSchoolOptions] = useState<SchoolOption[]>([]);
+  const [schoolsLoaded, setSchoolsLoaded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [schoolPick, setSchoolPick] = useState<string>("");
+
   const {
     register,
-    handleSubmit,
     control,
+    handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
-  } = useForm<RegistrationFormValues>({
-    resolver: zodResolver(registrationSchema),
+  } = useForm<RegisterSubmitInput>({
+    resolver: zodResolver(registerSubmitSchema),
     defaultValues: {
-      parentName: name ?? "",
-      parentPhone: "",
+      token,
+      name,
+      email,
+      verificationToken,
       studentName: "",
       studentAge: "",
       school: "",
       city: "",
-      referral: "",
+      hearAbout: undefined as unknown as HearAbout,
+      referralFrom: "",
       question: "",
     },
     mode: "onBlur",
   });
+
+  useEffect(() => {
+    fetch("/api/schools")
+      .then((r) => r.json())
+      .then((j: { ok: boolean; schools?: SchoolOption[] }) => {
+        if (j.ok && j.schools) setSchoolOptions(j.schools);
+      })
+      .finally(() => setSchoolsLoaded(true));
+  }, []);
+
+  const hearAbout = watch("hearAbout");
+
+  const onSchoolPick = (value: string) => {
+    setSchoolPick(value);
+    if (value === OTHER_SCHOOL) setValue("school", "", { shouldValidate: false });
+    else setValue("school", value, { shouldValidate: true });
+  };
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitting(true);
@@ -68,109 +404,165 @@ function FormStep({ token, name, onSent }: { token: string; name?: string; onSen
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, data: values }),
+        body: JSON.stringify(values),
       });
       const json = (await res.json()) as { ok: boolean; message?: string };
       if (!json.ok) throw new Error(json.message ?? "Could not submit");
-      onSent();
+      // Stay logged in: save the session so the home-page status checker
+      // picks them up automatically the next time they visit.
+      saveStatusSession(values.email.trim().toLowerCase(), values.verificationToken);
+      router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSubmitting(false);
     }
   });
 
-  const f = content.form.fields;
-
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-10">
-      <FieldGroup title={content.form.sectionLabels.parent}>
-        <Field
-          id="parentName"
-          label={f.parentName.label}
-          placeholder={f.parentName.placeholder}
-          autoComplete="name"
-          register={register("parentName")}
-          error={errors.parentName?.message}
-        />
-        <Field
-          id="parentPhone"
-          label={f.parentPhone.label}
-          placeholder={f.parentPhone.placeholder}
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          register={register("parentPhone")}
-          error={errors.parentPhone?.message}
-        />
-      </FieldGroup>
-
-      <FieldGroup title={content.form.sectionLabels.student}>
-        <div className="grid gap-5 md:grid-cols-[1fr_140px]">
-          <Field
-            id="studentName"
-            label={f.studentName.label}
-            placeholder={f.studentName.placeholder}
-            register={register("studentName")}
-            error={errors.studentName?.message}
-          />
-          <SelectField
-            id="studentAge"
-            label={f.studentAge.label}
-            placeholder={f.studentAge.placeholder}
-            control={control}
-            name="studentAge"
-            options={content.form.studentAgeOptions.map((age) => ({ value: age, label: age }))}
-            error={errors.studentAge?.message}
-          />
+    <form onSubmit={onSubmit} noValidate className="space-y-8">
+      {/* Locked identity */}
+      <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-emerald-300">
+              ✓ Email verified
+            </p>
+            <p className="mt-1 text-sm text-cream">
+              {name} · <span className="text-cream-70">{email}</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onEditEmail}
+            className="font-mono text-[10px] uppercase tracking-[0.2em] text-cream-40 hover:text-gold"
+          >
+            Edit
+          </button>
         </div>
-        <Field
-          id="school"
-          label={f.school.label}
-          placeholder={f.school.placeholder}
-          register={register("school")}
-          error={errors.school?.message}
-        />
-        <Field
-          id="city"
-          label={f.city.label}
-          placeholder={f.city.placeholder}
-          autoComplete="address-level2"
-          register={register("city")}
-          error={errors.city?.message}
-        />
-      </FieldGroup>
+      </div>
 
-      <FieldGroup title={content.form.sectionLabels.additional}>
-        <SelectField
-          id="referral"
-          label={f.referral.label}
-          placeholder={f.referral.placeholder}
-          control={control}
-          name="referral"
-          options={content.form.referralOptions.map((opt) => ({ value: opt, label: opt }))}
-          error={errors.referral?.message}
-        />
+      <section className="space-y-5">
+        <h3 className="font-mono text-xs font-bold tracking-[0.25em] text-gold">STUDENT DETAILS</h3>
         <div className="grid gap-2">
-          <Label htmlFor="question">{f.question.label}</Label>
+          <Label htmlFor="studentName">Student&apos;s name</Label>
+          <Input
+            id="studentName"
+            placeholder="Please enter the student's name"
+            {...register("studentName")}
+            aria-invalid={errors.studentName ? "true" : undefined}
+          />
+          {errors.studentName && <Err>{errors.studentName.message}</Err>}
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="studentAge">Student&apos;s age</Label>
+          <Input
+            id="studentAge"
+            inputMode="numeric"
+            maxLength={3}
+            placeholder="e.g. 16"
+            {...register("studentAge")}
+            aria-invalid={errors.studentAge ? "true" : undefined}
+          />
+          {errors.studentAge && <Err>{errors.studentAge.message}</Err>}
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="school-pick">School or college</Label>
+          <Select value={schoolPick} onValueChange={onSchoolPick}>
+            <SelectTrigger id="school-pick" aria-invalid={errors.school ? "true" : undefined}>
+              <SelectValue placeholder={schoolsLoaded ? "Choose one" : "Loading..."} />
+            </SelectTrigger>
+            <SelectContent>
+              {schoolOptions.map((s) => (
+                <SelectItem key={s.id} value={s.name}>
+                  {s.name}
+                </SelectItem>
+              ))}
+              <SelectItem value={OTHER_SCHOOL}>Other</SelectItem>
+            </SelectContent>
+          </Select>
+          {schoolPick === OTHER_SCHOOL && (
+            <Input
+              placeholder="Type the school or college name"
+              {...register("school")}
+              aria-invalid={errors.school ? "true" : undefined}
+            />
+          )}
+          {errors.school && <Err>{errors.school.message}</Err>}
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="city">City</Label>
+          <Input
+            id="city"
+            autoComplete="address-level2"
+            placeholder="Hyderabad"
+            {...register("city")}
+            aria-invalid={errors.city ? "true" : undefined}
+          />
+          {errors.city && <Err>{errors.city.message}</Err>}
+        </div>
+      </section>
+
+      <section className="space-y-5">
+        <h3 className="font-mono text-xs font-bold tracking-[0.25em] text-gold">A FEW MORE THINGS</h3>
+        <div className="grid gap-2">
+          <Label htmlFor="hearAbout">How did you hear about us?</Label>
+          <Controller
+            control={control}
+            name="hearAbout"
+            render={({ field }) => (
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                <SelectTrigger id="hearAbout" aria-invalid={errors.hearAbout ? "true" : undefined}>
+                  <SelectValue placeholder="Choose one" />
+                </SelectTrigger>
+                <SelectContent>
+                  {hearAboutValues.map((v) => (
+                    <SelectItem key={v} value={v}>
+                      {hearAboutLabels[v]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {errors.hearAbout && <Err>{errors.hearAbout.message}</Err>}
+        </div>
+        {hearAbout === "referral" && (
+          <div className="grid gap-2">
+            <Label htmlFor="referralFrom">Who referred you?</Label>
+            <Input
+              id="referralFrom"
+              placeholder="Their name"
+              {...register("referralFrom")}
+              aria-invalid={errors.referralFrom ? "true" : undefined}
+            />
+            {errors.referralFrom && <Err>{errors.referralFrom.message}</Err>}
+          </div>
+        )}
+        <div className="grid gap-2">
+          <Label htmlFor="question">A question you&apos;d like the panel to address (optional)</Label>
           <Textarea
             id="question"
-            placeholder={f.question.placeholder}
+            rows={4}
+            placeholder="What's the one thing you'd want answered?"
             {...register("question")}
             aria-invalid={errors.question ? "true" : undefined}
           />
-          {errors.question?.message && (
-            <p className="text-xs text-destructive" role="alert">
-              {errors.question.message}
-            </p>
-          )}
+          {errors.question && <Err>{errors.question.message}</Err>}
         </div>
-      </FieldGroup>
+      </section>
 
-      <div className="flex flex-col gap-4 border-t border-border pt-8 sm:flex-row sm:items-center sm:justify-between">
-        <p className="font-sans text-xs text-cream-40 sm:max-w-sm">{content.form.privacyNote}</p>
+      <input type="hidden" {...register("token")} />
+      <input type="hidden" {...register("name")} />
+      <input type="hidden" {...register("email")} />
+      <input type="hidden" {...register("verificationToken")} />
+
+      <div className="flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <p className="font-sans text-xs text-cream-40 sm:max-w-sm">
+          We&apos;ll only contact you about this event. No marketing, no third parties.
+        </p>
         <Button type="submit" size="lg" disabled={submitting}>
-          {submitting ? content.form.submitting : content.form.submit}
+          {submitting ? "Submitting..." : "Submit registration"}
         </Button>
       </div>
 
@@ -186,186 +578,11 @@ function FormStep({ token, name, onSent }: { token: string; name?: string; onSen
   );
 }
 
-/* ─────────────────── otp step ─────────────────── */
-
-function OtpStep({ token, email }: { token: string; email: string }) {
-  const router = useRouter();
-  const [otp, setOtp] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [resendNote, setResendNote] = useState<string | null>(null);
-
-  const verify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, otp }),
-      });
-      const json = (await res.json()) as { ok: boolean; message?: string };
-      if (!json.ok) throw new Error(json.message ?? "Could not verify");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const resend = async () => {
-    setResending(true);
-    setResendNote(null);
-    setError(null);
-    try {
-      const res = await fetch("/api/resend-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      const json = (await res.json()) as { ok: boolean; message?: string };
-      if (!json.ok) throw new Error(json.message ?? "Could not resend");
-      setResendNote("New code sent — check your inbox.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setResending(false);
-    }
-  };
-
+function Err({ children }: { children?: React.ReactNode }) {
+  if (!children) return null;
   return (
-    <form onSubmit={verify} className="space-y-8">
-      <div>
-        <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">
-          {content.otp.label}
-        </p>
-        <h2 className="mt-3 font-heading text-3xl font-bold leading-tight text-cream md:text-4xl">
-          {content.otp.title}
-        </h2>
-        <p className="mt-4 max-w-lg font-sans text-base text-cream-70">
-          {content.otp.body.replace("{email}", email)}
-        </p>
-      </div>
-
-      <div className="grid max-w-xs gap-2">
-        <Label htmlFor="otp">6-digit code</Label>
-        <Input
-          id="otp"
-          inputMode="numeric"
-          pattern="\d{6}"
-          maxLength={6}
-          autoComplete="one-time-code"
-          autoFocus
-          value={otp}
-          onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-          className="font-mono text-2xl tracking-[0.4em]"
-        />
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Button type="submit" size="lg" disabled={submitting || otp.length !== 6}>
-          {submitting ? content.otp.submitting : content.otp.submit}
-        </Button>
-        <Button type="button" variant="ghost" onClick={resend} disabled={resending}>
-          {resending ? content.otp.resending : content.otp.resend}
-        </Button>
-      </div>
-
-      {resendNote && <p className="text-sm text-cream-70">{resendNote}</p>}
-      {error && (
-        <p
-          className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
-          role="alert"
-        >
-          {error}
-        </p>
-      )}
-    </form>
-  );
-}
-
-/* ─────────────────── shared field helpers ─────────────────── */
-
-function FieldGroup({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <fieldset className="space-y-5">
-      <legend className="font-mono text-xs font-bold tracking-[0.25em] text-gold">{title}</legend>
-      <div className="space-y-5">{children}</div>
-    </fieldset>
-  );
-}
-
-interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  id: string;
-  label: string;
-  register: ReturnType<ReturnType<typeof useForm<RegistrationFormValues>>["register"]>;
-  error?: string;
-}
-
-function Field({ id, label, register, error, className, ...rest }: FieldProps) {
-  return (
-    <div className={cn("grid gap-2", className)}>
-      <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        aria-invalid={error ? "true" : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
-        {...register}
-        {...rest}
-      />
-      {error && (
-        <p id={`${id}-error`} className="text-xs text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-interface SelectFieldProps {
-  id: string;
-  label: string;
-  placeholder: string;
-  control: ReturnType<typeof useForm<RegistrationFormValues>>["control"];
-  name: keyof RegistrationFormValues;
-  options: { value: string; label: string }[];
-  error?: string;
-}
-
-function SelectField({ id, label, placeholder, control, name, options, error }: SelectFieldProps) {
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Controller
-        control={control}
-        name={name}
-        render={({ field }) => (
-          <Select onValueChange={field.onChange} value={field.value as string}>
-            <SelectTrigger
-              id={id}
-              aria-invalid={error ? "true" : undefined}
-              aria-describedby={error ? `${id}-error` : undefined}
-            >
-              <SelectValue placeholder={placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      />
-      {error && (
-        <p id={`${id}-error`} className="text-xs text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
+    <p className="text-xs text-destructive" role="alert">
+      {children}
+    </p>
   );
 }

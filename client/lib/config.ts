@@ -5,8 +5,8 @@
 
 export const siteConfig = {
   whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+919959682957",
-  eventStartIso: process.env.NEXT_PUBLIC_EVENT_START_ISO ?? "2026-05-23T18:00:00+05:30",
-  eventEndIso: process.env.NEXT_PUBLIC_EVENT_END_ISO ?? "2026-05-23T20:30:00+05:30",
+  eventStartIso: process.env.NEXT_PUBLIC_EVENT_START_ISO ?? "2026-06-06T18:00:00+05:30",
+  eventEndIso: process.env.NEXT_PUBLIC_EVENT_END_ISO ?? "2026-06-06T20:30:00+05:30",
 } as const;
 
 export const whatsappLink = (() => {

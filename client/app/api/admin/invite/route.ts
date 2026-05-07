@@ -25,6 +25,7 @@ export async function POST(request: Request) {
 
   const email = parsed.data.email.trim().toLowerCase();
   const name = parsed.data.name?.trim() || undefined;
+  const autoApprove = parsed.data.autoApprove === true;
   const col = await invitees();
 
   const existing = await col.findOne({ email });
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
           source: "admin",
           invitedBy: adminEmail,
           invitedAt: new Date(),
+          autoApprove,
           ...(name && !existing.name ? { name } : {}),
         },
       }
@@ -70,6 +72,7 @@ export async function POST(request: Request) {
     source: "admin",
     invitedBy: adminEmail,
     invitedAt: new Date(),
+    autoApprove,
   });
 
   const origin = request.headers.get("origin") ?? new URL(request.url).origin;

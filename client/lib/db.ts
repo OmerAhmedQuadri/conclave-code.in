@@ -1,8 +1,10 @@
 import { MongoClient, type Db, type Collection } from "mongodb";
 import type { AdminDoc } from "@/models/admin";
 import type { InviteeDoc } from "@/models/invitee";
+import type { SchoolDoc } from "@/models/school";
+import type { PendingOtpDoc } from "@/models/pending-otp";
 
-export type { AdminDoc, InviteeDoc };
+export type { AdminDoc, InviteeDoc, SchoolDoc, PendingOtpDoc };
 export type { InviteeStatus } from "@/models/invitee";
 
 declare global {
@@ -41,5 +43,21 @@ export async function admins(): Promise<Collection<AdminDoc>> {
   const db = await getDb();
   const col = db.collection<AdminDoc>("admins");
   await col.createIndex({ email: 1 }, { unique: true });
+  return col;
+}
+
+export async function schools(): Promise<Collection<SchoolDoc>> {
+  const db = await getDb();
+  const col = db.collection<SchoolDoc>("schools");
+  await col.createIndex({ name: 1 }, { unique: true });
+  return col;
+}
+
+export async function pendingOtps(): Promise<Collection<PendingOtpDoc>> {
+  const db = await getDb();
+  const col = db.collection<PendingOtpDoc>("pending_otps");
+  await col.createIndex({ email: 1 }, { unique: true });
+  // Auto-delete docs after the expiresAt timestamp passes
+  await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
   return col;
 }

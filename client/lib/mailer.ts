@@ -116,14 +116,53 @@ export async function sendNewRequestNotification(args: {
   );
 }
 
+export async function sendInvitationAcceptedNotification(args: {
+  to: string | string[];
+  name: string;
+  email: string;
+  emailChanged?: boolean;
+  originalEmail?: string;
+}) {
+  const recipients = Array.isArray(args.to) ? args.to : [args.to];
+  if (recipients.length === 0) return;
+
+  const changedRow = args.emailChanged && args.originalEmail
+    ? `<tr><td style="font-size:14px;color:#cfcfc8;padding-bottom:8px;"><strong style="color:#D4A843;">Email changed from:</strong> ${args.originalEmail}</td></tr>`
+    : "";
+
+  const html = wrap(`
+    <tr><td style="font-size:20px;font-weight:600;line-height:1.3;padding-bottom:16px;">Invitation accepted</td></tr>
+    <tr><td style="font-size:15px;line-height:1.6;color:#cfcfc8;padding-bottom:20px;">An invitee just verified their email and submitted their details.</td></tr>
+    <tr><td style="font-size:14px;color:#cfcfc8;padding-bottom:8px;"><strong style="color:#D4A843;">Name:</strong> ${args.name}</td></tr>
+    <tr><td style="font-size:14px;color:#cfcfc8;padding-bottom:8px;"><strong style="color:#D4A843;">Email:</strong> ${args.email}</td></tr>
+    ${changedRow}
+    <tr><td style="padding-top:20px;font-size:13px;color:#8a8a85;">Log in to the admin panel to review and approve.</td></tr>
+  `);
+  const text = [
+    "Invitation accepted",
+    "",
+    `Name:   ${args.name}`,
+    `Email:  ${args.email}`,
+    args.emailChanged && args.originalEmail ? `Originally invited as: ${args.originalEmail}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  await Promise.all(
+    recipients.map((to) =>
+      send({ to, subject: `Invitation accepted · ${args.name}`, html, text })
+    )
+  );
+}
+
 export async function sendConfirmationEmail(args: { to: string; name?: string }) {
   const greeting = args.name ? `Dear ${args.name},` : "Hello,";
   const html = wrap(`
     <tr><td style="font-size:24px;font-weight:600;line-height:1.3;padding-bottom:16px;">Your seat is confirmed.</td></tr>
     <tr><td style="font-size:15px;line-height:1.6;color:#cfcfc8;padding-bottom:24px;">${greeting}<br/><br/>We're glad to have you at the Future Engineers Conclave.</td></tr>
-    <tr><td style="font-size:14px;line-height:1.8;color:#cfcfc8;padding-bottom:24px;"><strong style="color:#D4A843;">Date:</strong> Saturday, May 23, 2026<br/><strong style="color:#D4A843;">Time:</strong> 6:00 PM – 8:30 PM<br/><strong style="color:#D4A843;">Venue:</strong> T-Hub, Hyderabad<br/><strong style="color:#D4A843;">Dress:</strong> Smart casual</td></tr>
+    <tr><td style="font-size:14px;line-height:1.8;color:#cfcfc8;padding-bottom:24px;"><strong style="color:#D4A843;">Date:</strong> Saturday, June 6, 2026<br/><strong style="color:#D4A843;">Time:</strong> 6:00 PM – 8:30 PM<br/><strong style="color:#D4A843;">Venue:</strong> T-Hub, Hyderabad<br/><strong style="color:#D4A843;">Dress:</strong> Smart casual</td></tr>
     <tr><td style="font-size:13px;color:#8a8a85;line-height:1.6;">A reminder with directions and parking info will reach you on WhatsApp 24 hours before the event.</td></tr>
   `);
-  const text = `${greeting}\n\nYour seat at the Future Engineers Conclave is confirmed.\n\nMay 23, 2026 · 6:00–8:30 PM · T-Hub, Hyderabad.`;
+  const text = `${greeting}\n\nYour seat at the Future Engineers Conclave is confirmed.\n\nJune 6, 2026 · 6:00–8:30 PM · T-Hub, Hyderabad.`;
   await send({ to: args.to, subject: "You're confirmed · Future Engineers Conclave", html, text });
 }

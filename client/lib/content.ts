@@ -9,7 +9,7 @@ export const content = {
   meta: {
     title: "Future Engineers Conclave · code.in",
     description:
-      "An invitation-only evening for premium families navigating engineering education in the AI era. T-Hub, Hyderabad · May 23, 2026.",
+      "An invitation-only evening for premium families navigating engineering education in the AI era. T-Hub, Hyderabad · June 6, 2026.",
   },
 
   brand: {
@@ -157,11 +157,9 @@ export const content = {
   },
 
   details: [
-    { label: "DATE", value: "Saturday, May 23, 2026" },
+    { label: "DATE", value: "Saturday, June 6, 2026" },
     { label: "TIME", value: "6:00 PM – 8:30 PM" },
     { label: "VENUE", value: "T-Hub, Hyderabad" },
-    { label: "DRESS", value: "Smart casual" },
-    { label: "GUESTS", value: "Parent + student" },
   ],
 
   register: {

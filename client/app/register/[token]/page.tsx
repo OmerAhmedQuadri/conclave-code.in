@@ -38,8 +38,6 @@ export default async function RegisterPage({ params }: PageProps) {
     return <FinalScreen variant="waitlist" />;
   }
 
-  const initialPhase: "form" | "otp" = doc.status === "registered" ? "otp" : "form";
-
   return (
     <main className="min-h-screen bg-ink">
       <SiteHeader label={register.label} title={register.title} intro={register.intro} />
@@ -47,12 +45,7 @@ export default async function RegisterPage({ params }: PageProps) {
       <section className="container max-w-4xl py-12 md:py-20">
         <div className="grid gap-12 md:grid-cols-[1fr_280px] md:gap-16">
           <div className="animate-fade-up">
-            <RegisterFlow
-              token={token}
-              email={doc.email}
-              name={doc.name}
-              initialPhase={initialPhase}
-            />
+            <RegisterFlow token={token} email={doc.email} name={doc.name} />
           </div>
           <div className="md:sticky md:top-12 md:self-start">
             <EventDetails />

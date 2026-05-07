@@ -4,6 +4,9 @@
 
 @layer base {
   html {
+    /* 110% of the browser default — Tailwind sizing/spacing is rem-based,
+       so every text size, padding, margin and gap scales up proportionally. */
+    font-size: 110%;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }

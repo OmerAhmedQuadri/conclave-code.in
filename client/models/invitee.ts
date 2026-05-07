@@ -1,5 +1,16 @@
 import type { ObjectId } from "mongodb";
 import type { RegisterFormData } from "@/models/register";
+import type { HearAbout } from "@/models/request-invite";
+
+export interface RequestInviteData {
+  studentName: string;
+  studentAge: string;
+  school: string;
+  city: string;
+  hearAbout: HearAbout;
+  referralFrom?: string;
+  question?: string;
+}
 
 export type InviteeStatus =
   | "requested"
@@ -12,15 +23,22 @@ export type InviteeStatus =
 export interface InviteeDoc {
   _id?: ObjectId;
   email: string;
+  originalEmail?: string;
   name?: string;
   token: string;
   status: InviteeStatus;
   source?: "admin" | "portal";
+  autoApprove?: boolean;
+  autoApproveAfter?: Date;
+  refreshCount?: number;
+  lastRefreshedAt?: Date;
   otp?: string;
   otpExpiresAt?: Date;
   otpAttempts?: number;
   formData?: RegisterFormData;
+  requestData?: RequestInviteData;
   reason?: string;
+  referralCode?: string;
   requestedAt?: Date;
   invitedBy?: string;
   invitedAt?: Date;
@@ -33,11 +51,17 @@ export interface InviteeDoc {
 export interface InviteeListItem {
   id?: string;
   email: string;
+  originalEmail?: string;
   name?: string;
   status: InviteeStatus;
   source?: "admin" | "portal";
+  autoApprove?: boolean;
+  autoApproveAfter?: Date;
+  refreshCount?: number;
+  lastRefreshedAt?: Date;
   token: string;
   reason?: string;
+  referralCode?: string;
   invitedBy?: string;
   decidedBy?: string;
   requestedAt?: Date;
@@ -46,7 +70,10 @@ export interface InviteeListItem {
   verifiedAt?: Date;
   decidedAt?: Date;
   formData?: RegisterFormData;
+  requestData?: RequestInviteData;
 }
+
+
 
 export type InviteeListResponse =
   | { ok: true; invitees: InviteeListItem[] }

@@ -27,7 +27,14 @@ export async function POST(request: Request) {
   if (!doc) {
     return NextResponse.json({ ok: false, message: "Invitee not found" }, { status: 404 });
   }
-  if (doc.status !== "otp_verified") {
+  // Decide is allowed when the user has provided enough info:
+  // - Portal flow: status "requested" (the user submitted the full form)
+  // - Admin-invite flow: status "otp_verified" (user registered + verified OTP)
+  // Portal "otp_verified" is an incomplete request — no requestData yet — so reject.
+  const isDecidable =
+    doc.status === "requested" ||
+    (doc.status === "otp_verified" && doc.source !== "portal");
+  if (!isDecidable) {
     return NextResponse.json(
       { ok: false, message: `Cannot decide on status "${doc.status}"` },
       { status: 409 }

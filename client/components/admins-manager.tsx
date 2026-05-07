@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 export interface AdminRow {
   id: string;
   email: string;
+  receiveEmails?: boolean;
   createdAt?: string;
   createdBy?: string;
 }
@@ -17,12 +18,21 @@ export interface AdminRow {
 interface Props {
   me: string;
   bootstrapEmail: string | null;
+  bootstrapReceiveEmails: boolean;
   initialRows: AdminRow[];
 }
 
-export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
+export function AdminsManager({
+  me,
+  bootstrapEmail,
+  bootstrapReceiveEmails: initialBootstrapReceiveEmails,
+  initialRows,
+}: Props) {
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
+  const [bootstrapReceiveEmails, setBootstrapReceiveEmails] = useState(
+    initialBootstrapReceiveEmails
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -31,8 +41,29 @@ export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
   const refresh = async () => {
     router.refresh();
     const res = await fetch("/api/admin/admins");
-    const json = (await res.json()) as { ok: boolean; admins?: AdminRow[] };
+    const json = (await res.json()) as {
+      ok: boolean;
+      admins?: AdminRow[];
+      bootstrapReceiveEmails?: boolean;
+    };
     if (json.ok && json.admins) setRows(json.admins);
+    if (json.ok && typeof json.bootstrapReceiveEmails === "boolean") {
+      setBootstrapReceiveEmails(json.bootstrapReceiveEmails);
+    }
+  };
+
+  const onToggleBootstrapEmails = async (next: boolean) => {
+    setBootstrapReceiveEmails(next);
+    const res = await fetch("/api/admin/admins/bootstrap-prefs", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ receiveEmails: next }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
+    if (!json.ok) {
+      setBootstrapReceiveEmails(!next);
+      setFeedback({ type: "err", message: json.message ?? "Could not update" });
+    }
   };
 
   const onAdd = async (e: React.FormEvent) => {
@@ -72,6 +103,22 @@ export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
       return;
     }
     await refresh();
+  };
+
+  const onToggleEmails = async (id: string, next: boolean) => {
+    // Optimistic update so the toggle feels snappy
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, receiveEmails: next } : r)));
+    const res = await fetch(`/api/admin/admins/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ receiveEmails: next }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
+    if (!json.ok) {
+      // Revert on failure
+      setRows((rs) => rs.map((r) => (r.id === id ? { ...r, receiveEmails: !next } : r)));
+      setFeedback({ type: "err", message: json.message ?? "Could not update" });
+    }
   };
 
   return (
@@ -139,6 +186,9 @@ export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
               <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">
                 ADDED BY
               </th>
+              <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">
+                EMAIL UPDATES
+              </th>
               <th className="w-px px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">
                 ACTIONS
               </th>
@@ -154,12 +204,18 @@ export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-cream-40">env</td>
+                <td className="whitespace-nowrap px-4 py-3">
+                  <ToggleSwitch
+                    checked={bootstrapReceiveEmails}
+                    onChange={onToggleBootstrapEmails}
+                  />
+                </td>
                 <td className="whitespace-nowrap px-4 py-3 text-cream-40">—</td>
               </tr>
             )}
             {rows.length === 0 && !bootstrapEmail && (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-cream-40">
+                <td colSpan={4} className="px-4 py-8 text-center text-cream-40">
                   No admins yet.
                 </td>
               </tr>
@@ -179,6 +235,12 @@ export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
                   </td>
                   <td className="px-4 py-3 text-cream-70">{row.createdBy ?? "—"}</td>
                   <td className="whitespace-nowrap px-4 py-3">
+                    <ToggleSwitch
+                      checked={row.receiveEmails ?? true}
+                      onChange={(v) => onToggleEmails(row.id, v)}
+                    />
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
                     <Button
                       size="sm"
                       variant="secondary"
@@ -195,5 +257,34 @@ export function AdminsManager({ me, bootstrapEmail, initialRows }: Props) {
         </table>
       </section>
     </main>
+  );
+}
+
+function ToggleSwitch({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors",
+        checked ? "bg-gold/70" : "bg-border"
+      )}
+    >
+      <span
+        className={cn(
+          "inline-block h-5 w-5 transform rounded-full bg-cream shadow-md transition-transform",
+          checked ? "translate-x-5" : "translate-x-0.5"
+        )}
+      />
+      <span className="sr-only">{checked ? "Email updates on" : "Email updates off"}</span>
+    </button>
   );
 }

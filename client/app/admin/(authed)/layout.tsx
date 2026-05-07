@@ -25,6 +25,9 @@ export default async function AuthedAdminLayout({ children }: { children: React.
               <Link href="/admin/dashboard" className="transition-colors hover:text-gold">
                 DASHBOARD
               </Link>
+              <Link href="/admin/schools" className="transition-colors hover:text-gold">
+                SCHOOLS
+              </Link>
               <Link href="/admin/admins" className="transition-colors hover:text-gold">
                 ADMINS
               </Link>
