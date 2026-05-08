@@ -20,6 +20,10 @@ export type InviteeStatus =
   | "approved"
   | "rejected";
 
+export const autoApproveModes = ["immediate", "delayed", "never"] as const;
+export type AutoApproveMode = (typeof autoApproveModes)[number];
+export const AUTO_APPROVE_DELAY_MS = 2 * 60 * 60 * 1000; // 2 hours
+
 export interface InviteeDoc {
   _id?: ObjectId;
   email: string;
@@ -28,7 +32,7 @@ export interface InviteeDoc {
   token: string;
   status: InviteeStatus;
   source?: "admin" | "portal";
-  autoApprove?: boolean;
+  autoApproveMode?: AutoApproveMode;
   autoApproveAfter?: Date;
   refreshCount?: number;
   lastRefreshedAt?: Date;
@@ -55,7 +59,7 @@ export interface InviteeListItem {
   name?: string;
   status: InviteeStatus;
   source?: "admin" | "portal";
-  autoApprove?: boolean;
+  autoApproveMode?: AutoApproveMode;
   autoApproveAfter?: Date;
   refreshCount?: number;
   lastRefreshedAt?: Date;

@@ -35,7 +35,7 @@ export async function GET() {
     registeredAt: d.registeredAt,
     verifiedAt: d.verifiedAt,
     decidedAt: d.decidedAt,
-    autoApprove: d.autoApprove,
+    autoApproveMode: d.autoApproveMode,
     autoApproveAfter: d.autoApproveAfter,
     refreshCount: d.refreshCount,
     lastRefreshedAt: d.lastRefreshedAt,

@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { registerSubmitSchema } from "@/models/register";
 import { invitees, pendingOtps, admins } from "@/lib/db";
+import { AUTO_APPROVE_DELAY_MS } from "@/models/invitee";
 import { verifyEmailVerificationToken } from "@/lib/verification-token";
-import { sendInvitationAcceptedNotification } from "@/lib/mailer";
+import {
+  sendConfirmationEmail,
+  sendInvitationAcceptedNotification,
+} from "@/lib/mailer";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -76,10 +80,10 @@ export async function POST(request: Request) {
   };
 
   const now = new Date();
+  const mode = invitee.autoApproveMode ?? "never";
   const update: Record<string, unknown> = {
     email,
     name,
-    status: "otp_verified",
     requestData,
     verifiedAt: now,
     registeredAt: now,
@@ -88,12 +92,28 @@ export async function POST(request: Request) {
     // Preserve the email the admin originally invited
     update.originalEmail = invitee.originalEmail ?? invitee.email;
   }
-  if (invitee.autoApprove) {
-    // Schedule auto-approval 2 hours after acceptance
-    update.autoApproveAfter = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+
+  if (mode === "immediate") {
+    // Skip the manual approval step entirely
+    update.status = "approved";
+    update.decidedAt = now;
+    update.decidedBy = "auto";
+  } else {
+    update.status = "otp_verified";
+    if (mode === "delayed") {
+      update.autoApproveAfter = new Date(now.getTime() + AUTO_APPROVE_DELAY_MS);
+    }
+    // mode === "never" → no autoApproveAfter, admin decides manually
   }
 
   await col.updateOne({ token }, { $set: update });
+
+  // Confirmation email if we just auto-approved
+  if (mode === "immediate") {
+    sendConfirmationEmail({ to: email, name }).catch((err) =>
+      console.error("[register] confirmation email failed:", err)
+    );
+  }
 
   // Clean up the consumed pending OTP
   await otpCol.deleteOne({ email }).catch(() => {});

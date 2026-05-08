@@ -32,7 +32,7 @@ export default async function DashboardPage() {
     registeredAt: d.registeredAt?.toISOString(),
     verifiedAt: d.verifiedAt?.toISOString(),
     decidedAt: d.decidedAt?.toISOString(),
-    autoApprove: d.autoApprove,
+    autoApproveMode: d.autoApproveMode,
     autoApproveAfter: d.autoApproveAfter?.toISOString(),
     refreshCount: d.refreshCount,
     lastRefreshedAt: d.lastRefreshedAt?.toISOString(),

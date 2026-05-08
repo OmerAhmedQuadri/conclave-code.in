@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { autoApproveModes } from "@/models/invitee";
 
 export const inviteSchema = z.object({
   email: z.string().email("Please enter a valid email"),
   name: z.string().max(80).optional().or(z.literal("")),
-  autoApprove: z.boolean().optional(),
+  autoApproveMode: z.enum(autoApproveModes).optional(),
 });
 
 export type InviteInput = z.infer<typeof inviteSchema>;

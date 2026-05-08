@@ -16,7 +16,7 @@ export async function processAutoApprovals(): Promise<number> {
     .find({
       status: "otp_verified",
       source: "admin",
-      autoApprove: true,
+      autoApproveMode: "delayed",
       autoApproveAfter: { $lte: now },
     })
     .toArray();

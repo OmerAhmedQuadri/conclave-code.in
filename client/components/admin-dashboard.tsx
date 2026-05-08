@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ImportInvitesPanel } from "@/components/import-invites";
 import { cn } from "@/lib/utils";
 
 export interface InviteeRow {
@@ -23,7 +31,7 @@ export interface InviteeRow {
   registeredAt?: string;
   verifiedAt?: string;
   decidedAt?: string;
-  autoApprove?: boolean;
+  autoApproveMode?: "immediate" | "delayed" | "never";
   autoApproveAfter?: string;
   refreshCount?: number;
   lastRefreshedAt?: string;
@@ -98,6 +106,17 @@ function relevantDate(row: InviteeRow) {
   return row.decidedAt ?? row.verifiedAt ?? row.registeredAt ?? row.invitedAt ?? row.requestedAt;
 }
 
+function isDecidable(row: InviteeRow): boolean {
+  return (
+    row.status === "requested" ||
+    (row.status === "otp_verified" && row.source !== "portal")
+  );
+}
+
+function isRejectable(row: InviteeRow): boolean {
+  return isDecidable(row) && row.source !== "admin";
+}
+
 export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
@@ -107,6 +126,8 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
   const [portalFilter, setPortalFilter] = useState<PortalFilter>("all");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const adminRows = rows.filter((r) => r.source === "admin");
   const portalRows = rows.filter((r) => r.source === "portal" || !r.source);
@@ -170,6 +191,61 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
     });
   };
 
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const selectAllVisible = (visibleRows: InviteeRow[], checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const r of visibleRows) {
+        if (checked) next.add(r.id);
+        else next.delete(r.id);
+      }
+      return next;
+    });
+  };
+
+  const bulkDecide = async (decision: "approve" | "reject") => {
+    const tokens = rows
+      .filter((r) => selectedIds.has(r.id))
+      .filter((r) => (decision === "approve" ? isDecidable(r) : isRejectable(r)))
+      .map((r) => r.token);
+    if (tokens.length === 0) return;
+    if (!confirm(`${decision === "approve" ? "Approve" : "Reject"} ${tokens.length} invitee${tokens.length === 1 ? "" : "s"}?`)) {
+      return;
+    }
+    setError(null);
+    setBulkBusy(true);
+    try {
+      const res = await fetch("/api/admin/decide/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tokens, decision }),
+      });
+      const json = (await res.json()) as
+        | { ok: true; succeeded: number; failed: number }
+        | { ok: false; message?: string };
+      if (!json.ok) throw new Error(json.message ?? "Bulk action failed");
+      if (json.failed > 0) {
+        setError(`${json.succeeded} updated, ${json.failed} skipped (status not eligible).`);
+      }
+      clearSelection();
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const decide = async (token: string, decision: "approve" | "reject") => {
     setError(null);
     const res = await fetch("/api/admin/decide", {
@@ -213,18 +289,20 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
   };
 
   return (
-    <main className="container max-w-5xl space-y-10 py-10 md:py-14">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard label="Total" value={rows.length} />
-        <StatCard
-          label="Pending portal requests"
-          value={portalCounts.pending}
-          highlight={portalCounts.pending > 0}
-        />
-        <StatCard label="Approved" value={portalCounts.accepted + adminCounts.accepted} />
+    <main className="container max-w-6xl space-y-10 py-10 md:py-14">
+      {/* Bento: stats on the left, send-invitation on the right */}
+      <div className="grid gap-4 md:grid-cols-[minmax(220px,1fr)_2fr]">
+        <div className="grid gap-4">
+          <StatCard label="Total" value={rows.length} />
+          <StatCard
+            label="Pending portal requests"
+            value={portalCounts.pending}
+            highlight={portalCounts.pending > 0}
+          />
+          <StatCard label="Approved" value={portalCounts.accepted + adminCounts.accepted} />
+        </div>
+        <InviteForm onSent={refresh} />
       </div>
-
-      <InviteForm onSent={refresh} />
 
       {/* Main segment toggle */}
       <div className="flex flex-wrap gap-2 border-b border-border">
@@ -276,6 +354,12 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
           onDecide={decide}
           onResend={resendInvite}
           onDelete={deleteInvitee}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelected}
+          onSelectAllVisible={selectAllVisible}
+          onClearSelection={clearSelection}
+          onBulkDecide={bulkDecide}
+          bulkBusy={bulkBusy}
         />
       )}
 
@@ -300,6 +384,12 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
           onDecide={decide}
           onResend={resendInvite}
           onDelete={deleteInvitee}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelected}
+          onSelectAllVisible={selectAllVisible}
+          onClearSelection={clearSelection}
+          onBulkDecide={bulkDecide}
+          bulkBusy={bulkBusy}
         />
       )}
 
@@ -323,6 +413,12 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
           onDecide={decide}
           onResend={resendInvite}
           onDelete={deleteInvitee}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelected}
+          onSelectAllVisible={selectAllVisible}
+          onClearSelection={clearSelection}
+          onBulkDecide={bulkDecide}
+          bulkBusy={bulkBusy}
         />
       )}
     </main>
@@ -394,6 +490,12 @@ function Section({
   onDecide,
   onResend,
   onDelete,
+  selectedIds,
+  onToggleSelect,
+  onSelectAllVisible,
+  onClearSelection,
+  onBulkDecide,
+  bulkBusy,
 }: {
   filterPills: React.ReactNode;
   rows: InviteeRow[];
@@ -402,15 +504,68 @@ function Section({
   onDecide: (token: string, d: "approve" | "reject") => void;
   onResend: (email: string) => void;
   onDelete: (id: string, email: string) => void;
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onSelectAllVisible: (rows: InviteeRow[], checked: boolean) => void;
+  onClearSelection: () => void;
+  onBulkDecide: (decision: "approve" | "reject") => void;
+  bulkBusy: boolean;
 }) {
+  const decidableVisible = rows.filter(isDecidable);
+  const allDecidableSelected =
+    decidableVisible.length > 0 && decidableVisible.every((r) => selectedIds.has(r.id));
+  const selectedRows = rows.filter((r) => selectedIds.has(r.id));
+  const approveCount = selectedRows.filter(isDecidable).length;
+  const rejectCount = selectedRows.filter(isRejectable).length;
+
   return (
     <section className="space-y-4">
       {filterPills}
+
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gold/40 bg-gold/5 px-4 py-2">
+          <p className="text-sm text-cream">
+            <span className="font-semibold text-gold">{selectedIds.size}</span> selected
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              disabled={bulkBusy || approveCount === 0}
+              onClick={() => onBulkDecide("approve")}
+            >
+              {bulkBusy ? "Working..." : `Approve (${approveCount})`}
+            </Button>
+            {rejectCount > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={bulkBusy}
+                onClick={() => onBulkDecide("reject")}
+              >
+                Reject ({rejectCount})
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={onClearSelection} disabled={bulkBusy}>
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full text-sm">
           <thead className="bg-card text-left">
             <tr>
+              <th className="w-px px-4 py-3">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 cursor-pointer accent-gold disabled:opacity-30"
+                  aria-label="Select all decidable rows"
+                  checked={allDecidableSelected}
+                  disabled={decidableVisible.length === 0}
+                  onChange={(e) => onSelectAllVisible(decidableVisible, e.target.checked)}
+                />
+              </th>
               <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">EMAIL</th>
               <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">NAME</th>
               <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">STATUS</th>
@@ -421,7 +576,7 @@ function Section({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-cream-40">
+                <td colSpan={6} className="px-4 py-8 text-center text-cream-40">
                   Nothing here yet.
                 </td>
               </tr>
@@ -435,6 +590,8 @@ function Section({
                 onDecide={onDecide}
                 onResend={onResend}
                 onDelete={onDelete}
+                selected={selectedIds.has(row.id)}
+                onToggleSelect={onToggleSelect}
               />
             ))}
           </tbody>
@@ -473,6 +630,8 @@ function Row({
   onDecide,
   onResend,
   onDelete,
+  selected,
+  onToggleSelect,
 }: {
   row: InviteeRow;
   segment: Segment;
@@ -480,6 +639,8 @@ function Row({
   onDecide: (token: string, d: "approve" | "reject") => void;
   onResend: (email: string) => void;
   onDelete: (id: string, email: string) => void;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   // Pick label set based on the row's actual source (so "All" tab shows correct labels).
@@ -503,9 +664,23 @@ function Row({
     emailChanged ||
     Boolean(row.refreshCount);
 
+  const decidable = isDecidable(row);
+
   return (
     <>
       <tr className="border-t border-border align-top">
+        <td className="w-px px-4 py-3 align-top">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 cursor-pointer accent-gold disabled:cursor-not-allowed disabled:opacity-30"
+            checked={selected}
+            disabled={!decidable}
+            onChange={() => onToggleSelect(row.id)}
+            aria-label={
+              decidable ? `Select ${row.email}` : `${row.email} is not decidable`
+            }
+          />
+        </td>
         <td className="px-4 py-3 text-cream">
           <span className="block">{row.email}</span>
           <div className="mt-0.5 flex flex-wrap gap-1">
@@ -549,9 +724,9 @@ function Row({
           >
             {labelMap[row.status]}
           </span>
-          {row.status === "otp_verified" && row.autoApprove && row.autoApproveAfter && (
-            <AutoApproveBadge after={row.autoApproveAfter} />
-          )}
+          {row.status === "otp_verified" &&
+            row.autoApproveMode === "delayed" &&
+            row.autoApproveAfter && <AutoApproveBadge after={row.autoApproveAfter} />}
           {row.status === "approved" && row.decidedBy === "auto" && (
             <span className="ml-1 inline-block rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-300">
               auto
@@ -607,7 +782,7 @@ function Row({
       </tr>
       {open && hasDetails && (
         <tr className="border-t border-border bg-card/60">
-          <td colSpan={5} className="px-4 py-4">
+          <td colSpan={6} className="px-4 py-4">
             <dl className="grid gap-3 sm:grid-cols-2">
               {emailChanged && row.originalEmail && (
                 <Detail label="Originally invited as" value={row.originalEmail} />
@@ -696,10 +871,19 @@ function AutoApproveBadge({ after }: { after: string }) {
   );
 }
 
+type AutoApproveMode = "immediate" | "delayed" | "never";
+
+const AUTO_APPROVE_LABELS: Record<AutoApproveMode, string> = {
+  never: "Never — require manual approval",
+  delayed: "After 2 hours of accepting",
+  immediate: "Immediately on accepting",
+};
+
 function InviteForm({ onSent }: { onSent: () => void }) {
+  const [mode, setMode] = useState<"single" | "import">("single");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [autoApprove, setAutoApprove] = useState(false);
+  const [autoApproveMode, setAutoApproveMode] = useState<AutoApproveMode>("never");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; message: string } | null>(null);
 
@@ -711,7 +895,7 @@ function InviteForm({ onSent }: { onSent: () => void }) {
       const res = await fetch("/api/admin/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name: name || undefined, autoApprove }),
+        body: JSON.stringify({ email, name: name || undefined, autoApproveMode }),
       });
       const json = (await res.json()) as { ok: boolean; message?: string; upgraded?: boolean };
       if (!json.ok) throw new Error(json.message ?? "Could not send invite");
@@ -721,7 +905,7 @@ function InviteForm({ onSent }: { onSent: () => void }) {
       });
       setEmail("");
       setName("");
-      setAutoApprove(false);
+      setAutoApproveMode("never");
       onSent();
     } catch (err) {
       setFeedback({
@@ -735,10 +919,45 @@ function InviteForm({ onSent }: { onSent: () => void }) {
 
   return (
     <section className="rounded-md border border-border bg-card p-6 md:p-8">
-      <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">SEND NEW INVITATION</p>
-      <p className="mt-1 text-xs text-cream-40">
-        Admin-created invites land under the &quot;Admin invited&quot; tab.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-xs font-bold tracking-[0.25em] text-gold">
+            SEND NEW INVITATION
+          </p>
+          <p className="mt-1 text-xs text-cream-40">
+            Admin-created invites land under the &quot;Admin invited&quot; tab.
+          </p>
+        </div>
+        <div className="flex rounded-md border border-border bg-ink/30 p-0.5 text-xs">
+          <button
+            type="button"
+            onClick={() => setMode("single")}
+            className={cn(
+              "rounded px-3 py-1.5 font-mono uppercase tracking-wider transition-colors",
+              mode === "single" ? "bg-gold/15 text-gold" : "text-cream-40 hover:text-cream-70"
+            )}
+          >
+            Single
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("import")}
+            className={cn(
+              "rounded px-3 py-1.5 font-mono uppercase tracking-wider transition-colors",
+              mode === "import" ? "bg-gold/15 text-gold" : "text-cream-40 hover:text-cream-70"
+            )}
+          >
+            Import from sheet
+          </button>
+        </div>
+      </div>
+
+      {mode === "import" ? (
+        <div className="mt-5">
+          <ImportInvitesPanel onSent={onSent} />
+        </div>
+      ) : (
+      <>
       <form onSubmit={onSubmit} className="mt-5 grid gap-4 sm:grid-cols-[2fr_2fr_auto] sm:items-end">
         <div className="grid gap-2">
           <Label htmlFor="invite-email">Email</Label>
@@ -764,21 +983,25 @@ function InviteForm({ onSent }: { onSent: () => void }) {
           {submitting ? "Sending..." : "Send invite"}
         </Button>
       </form>
-      <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-cream-70">
-        <input
-          type="checkbox"
-          checked={autoApprove}
-          onChange={(e) => setAutoApprove(e.target.checked)}
-          className="mt-0.5 h-4 w-4 cursor-pointer accent-gold"
-        />
-        <span>
-          <span className="text-cream">Auto-approve after 2 hours</span>
-          <span className="block text-xs text-cream-40">
-            Skip the manual approval step — once the invitee verifies their email and submits the
-            form, they&apos;ll be auto-approved 2 hours later if you haven&apos;t decided yet.
-          </span>
-        </span>
-      </label>
+      <div className="mt-4 grid gap-2">
+        <Label htmlFor="invite-auto-approve">Auto-approve</Label>
+        <Select
+          value={autoApproveMode}
+          onValueChange={(v) => setAutoApproveMode(v as AutoApproveMode)}
+        >
+          <SelectTrigger id="invite-auto-approve">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="never">{AUTO_APPROVE_LABELS.never}</SelectItem>
+            <SelectItem value="delayed">{AUTO_APPROVE_LABELS.delayed}</SelectItem>
+            <SelectItem value="immediate">{AUTO_APPROVE_LABELS.immediate}</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-cream-40">
+          The clock starts when the invitee submits the form, not when you send the invite.
+        </p>
+      </div>
       {feedback && (
         <p
           className={cn(
@@ -791,6 +1014,8 @@ function InviteForm({ onSent }: { onSent: () => void }) {
         >
           {feedback.message}
         </p>
+      )}
+      </>
       )}
     </section>
   );
