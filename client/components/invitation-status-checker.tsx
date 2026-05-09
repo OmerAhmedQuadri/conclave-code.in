@@ -16,7 +16,7 @@ type Stored = { email: string; verificationToken: string };
 
 export function saveStatusSession(email: string, verificationToken: string) {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(
+  window.localStorage.setItem(
     STATUS_SESSION_KEY,
     JSON.stringify({ email, verificationToken })
   );
@@ -24,33 +24,51 @@ export function saveStatusSession(email: string, verificationToken: string) {
 
 export function hasStatusSession(): boolean {
   if (typeof window === "undefined") return false;
-  return Boolean(window.sessionStorage.getItem(STATUS_SESSION_KEY));
+  return Boolean(window.localStorage.getItem(STATUS_SESSION_KEY));
 }
 
-type Stage = "email" | "otp" | "status";
+type Stage = "loading" | "email" | "otp" | "status";
 
 interface Props {
   onBack?: () => void;
 }
 
 export function InvitationStatusChecker({ onBack }: Props) {
-  const [stage, setStage] = useState<Stage>("email");
+  const [stage, setStage] = useState<Stage>("loading");
   const [email, setEmail] = useState("");
   const [info, setInfo] = useState<CheckStatusInfo | null>(null);
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
   const autoRefreshAttempted = useRef(false);
 
-  // Try to resume an existing session — and that auto-refresh counts as a visit
+  // Try to resume an existing session — and that auto-refresh counts as a visit.
+  // We start in the "loading" stage so we never flash the email-entry form
+  // while the session check is in flight.
   useEffect(() => {
     if (autoRefreshAttempted.current) return;
     autoRefreshAttempted.current = true;
     if (typeof window === "undefined") return;
-    const raw = window.sessionStorage.getItem(STATUS_SESSION_KEY);
-    if (!raw) return;
+
+    const raw = window.localStorage.getItem(STATUS_SESSION_KEY);
+    if (!raw) {
+      setStage("email");
+      return;
+    }
+    let parsed: Stored;
     try {
-      const parsed = JSON.parse(raw) as Stored;
-      if (!parsed.email || !parsed.verificationToken) return;
-      void (async () => {
+      parsed = JSON.parse(raw) as Stored;
+      if (!parsed.email || !parsed.verificationToken) {
+        window.localStorage.removeItem(STATUS_SESSION_KEY);
+        setStage("email");
+        return;
+      }
+    } catch {
+      window.localStorage.removeItem(STATUS_SESSION_KEY);
+      setStage("email");
+      return;
+    }
+
+    void (async () => {
+      try {
         const res = await fetch("/api/check-status/refresh", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -63,13 +81,26 @@ export function InvitationStatusChecker({ onBack }: Props) {
           setInfo(json.info);
           setStage("status");
         } else {
-          window.sessionStorage.removeItem(STATUS_SESSION_KEY);
+          window.localStorage.removeItem(STATUS_SESSION_KEY);
+          setStage("email");
         }
-      })();
-    } catch {
-      window.sessionStorage.removeItem(STATUS_SESSION_KEY);
-    }
+      } catch {
+        setStage("email");
+      }
+    })();
   }, []);
+
+  if (stage === "loading") {
+    return (
+      <div
+        className="flex items-center justify-center py-16 font-mono text-xs uppercase tracking-[0.2em] text-cream-40"
+        aria-live="polite"
+      >
+        <span className="inline-block h-4 w-4 animate-pulse rounded-full bg-cream-40/40" />
+        <span className="ml-3">Loading status...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -103,7 +134,7 @@ export function InvitationStatusChecker({ onBack }: Props) {
           onVerified={(t, infoFromServer) => {
             setVerificationToken(t);
             setInfo(infoFromServer);
-            window.sessionStorage.setItem(
+            window.localStorage.setItem(
               STATUS_SESSION_KEY,
               JSON.stringify({ email, verificationToken: t })
             );
@@ -119,7 +150,7 @@ export function InvitationStatusChecker({ onBack }: Props) {
           verificationToken={verificationToken}
           onUpdate={setInfo}
           onSignOut={() => {
-            window.sessionStorage.removeItem(STATUS_SESSION_KEY);
+            window.localStorage.removeItem(STATUS_SESSION_KEY);
             setEmail("");
             setInfo(null);
             setVerificationToken(null);

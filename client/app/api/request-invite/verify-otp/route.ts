@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyInviteOtpSchema } from "@/models/request-invite";
 import { invitees, pendingOtps } from "@/lib/db";
-import { OTP_MAX_ATTEMPTS, generateInviteToken } from "@/lib/tokens";
+import { OTP_MAX_ATTEMPTS } from "@/lib/tokens";
 import { issueEmailVerificationToken } from "@/lib/verification-token";
 
 export async function POST(request: Request) {
@@ -55,28 +55,14 @@ export async function POST(request: Request) {
 
   await col.updateOne({ email }, { $set: { verifiedAt: new Date() } });
 
-  // Create a placeholder "incomplete" invitee record so admins can see users
-  // who verified their email but didn't complete the full form. If the user
-  // returns and submits, this record gets upgraded to status: "requested".
+  // The placeholder invitee was already created at send-otp time.
+  // Just stamp verifiedAt on it so admins can tell apart "OTP sent but not
+  // verified" from "OTP verified but form not submitted".
   const inviteeCol = await invitees();
-  const existingInvitee = await inviteeCol.findOne({ email });
-  if (!existingInvitee) {
-    await inviteeCol.insertOne({
-      email,
-      name: doc.name,
-      token: generateInviteToken(),
-      status: "otp_verified",
-      source: "portal",
-      verifiedAt: new Date(),
-      requestedAt: new Date(),
-    });
-  } else if (existingInvitee.source === "portal" && existingInvitee.status === "otp_verified") {
-    // Resuming — bump verifiedAt to reflect latest activity
-    await inviteeCol.updateOne(
-      { _id: existingInvitee._id },
-      { $set: { verifiedAt: new Date() } }
-    );
-  }
+  await inviteeCol.updateOne(
+    { email, source: "portal", status: "otp_verified" },
+    { $set: { verifiedAt: new Date() } }
+  );
 
   const verificationToken = issueEmailVerificationToken(email);
   return NextResponse.json({ ok: true, verificationToken });

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, DM_Sans, JetBrains_Mono } from "next/font/google";
 import { content } from "@/lib/content";
+import { ThemeProvider } from "@/components/theme-provider";
+import { FloatingThemeToggle } from "@/components/floating-theme-toggle";
 import "./globals.css";
 
 const heading = Instrument_Sans({
@@ -41,10 +43,27 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+// Runs before React hydrates so the correct theme is applied without a flash.
+const themeInitScript = `
+(function(){try{var t=localStorage.getItem("fec_theme");if(t!=="light"){document.documentElement.classList.add("dark");}}catch(_){document.documentElement.classList.add("dark");}})();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${heading.variable} ${body.variable} ${mono.variable}`}>
-      <body>{children}</body>
+    <html
+      lang="en"
+      className={`${heading.variable} ${body.variable} ${mono.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body>
+        <ThemeProvider>
+          {children}
+          <FloatingThemeToggle />
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

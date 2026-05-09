@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { sendInviteOtpSchema } from "@/models/request-invite";
 import { invitees, pendingOtps } from "@/lib/db";
-import { generateOtp, OTP_TTL_MS } from "@/lib/tokens";
+import { generateInviteToken, generateOtp, OTP_TTL_MS } from "@/lib/tokens";
 import { sendOtpEmail } from "@/lib/mailer";
 
 export async function POST(request: Request) {
@@ -67,6 +67,26 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { ok: false, message: "Could not send OTP email. Please try again." },
       { status: 502 }
+    );
+  }
+
+  // Create a placeholder "incomplete" invitee record on first contact so admins
+  // can see users who entered their email but never completed the flow.
+  // verifiedAt stays unset until they actually verify the OTP.
+  if (!existing) {
+    await inviteeCol.insertOne({
+      email,
+      name,
+      token: generateInviteToken(),
+      status: "otp_verified",
+      source: "portal",
+      requestedAt: new Date(),
+    });
+  } else if (existing.source === "portal" && existing.status === "otp_verified") {
+    // Resume — keep the same record, just refresh the latest provided name
+    await inviteeCol.updateOne(
+      { _id: existing._id },
+      { $set: { name: name || existing.name } }
     );
   }
 

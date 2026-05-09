@@ -3,6 +3,61 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * Color tokens. Values are stored as `R G B` triplets so Tailwind's
+   * `rgb(var(--token) / <alpha-value>)` can apply opacity modifiers like
+   * `bg-gold/30`. To add or tweak the palette, edit the rows below.
+   */
+  :root {
+    /* Light theme — warm off-white background, near-black text */
+    --color-ink: 250 250 247;
+    --color-card: 255 255 255;
+    --color-border: 218 218 210;
+
+    /* Text tokens. These are deliberately darker than typical light themes
+       because the brand uses these tokens for headings + body, not just chrome. */
+    --color-cream: 17 17 17;       /* main body / headings — near-black */
+    --color-cream-70: 45 45 42;    /* secondary text / paragraphs */
+    --color-cream-40: 80 80 75;    /* tertiary / muted labels */
+
+    --color-gold: 143 110 32;       /* darker gold for contrast on light bg */
+    --color-gold-muted: 116 88 22;
+
+    --color-background: 250 250 247;
+    --color-foreground: 17 17 17;
+    --color-primary: 143 110 32;
+    --color-primary-foreground: 255 255 255;
+    --color-muted: 245 245 240;
+    --color-muted-foreground: 45 45 42;
+    --color-destructive: 192 38 38;
+    --color-destructive-foreground: 255 255 255;
+    --color-ring: 143 110 32;
+  }
+
+  .dark {
+    /* Dark theme — original brand palette */
+    --color-ink: 26 26 26;
+    --color-card: 34 34 34;
+    --color-border: 45 45 45;
+
+    --color-cream: 245 245 240;
+    --color-cream-70: 181 181 174;
+    --color-cream-40: 107 107 104;
+
+    --color-gold: 212 168 67;
+    --color-gold-muted: 168 133 52;
+
+    --color-background: 26 26 26;
+    --color-foreground: 245 245 240;
+    --color-primary: 212 168 67;
+    --color-primary-foreground: 26 26 26;
+    --color-muted: 34 34 34;
+    --color-muted-foreground: 181 181 174;
+    --color-destructive: 224 72 72;
+    --color-destructive-foreground: 245 245 240;
+    --color-ring: 212 168 67;
+  }
+
   html {
     /* 110% of the browser default — Tailwind sizing/spacing is rem-based,
        so every text size, padding, margin and gap scales up proportionally. */

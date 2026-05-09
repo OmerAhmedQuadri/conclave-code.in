@@ -68,8 +68,12 @@ export async function POST(request: Request) {
   }
 
   const requestData = {
+    role: parsed.data.role,
     studentName: parsed.data.studentName.trim(),
     studentAge: parsed.data.studentAge.trim(),
+    studentPhone: parsed.data.studentPhone.trim(),
+    studentEmail: parsed.data.studentEmail?.trim() || undefined,
+    parentPhone: parsed.data.parentPhone?.trim() || undefined,
     school: parsed.data.school.trim(),
     city: parsed.data.city.trim(),
     hearAbout: parsed.data.hearAbout,

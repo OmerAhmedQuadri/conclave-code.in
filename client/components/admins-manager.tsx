@@ -176,8 +176,8 @@ export function AdminsManager({
         )}
       </section>
 
-      <section className="overflow-hidden rounded-md border border-border">
-        <table className="w-full text-sm">
+      <section className="overflow-x-auto rounded-md border border-border">
+        <table className="w-full min-w-[520px] text-sm">
           <thead className="bg-card text-left">
             <tr>
               <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">

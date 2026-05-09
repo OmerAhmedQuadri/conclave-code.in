@@ -20,7 +20,7 @@ export default function Page() {
       {/* Hero with embedded form on the right */}
       <section className="border-b border-border">
         <div className="container max-w-6xl py-12 md:py-20">
-          <div className="grid gap-12 md:grid-cols-[1fr_460px] md:items-start md:gap-16">
+          <div className="grid gap-12 lg:grid-cols-[1fr_440px] lg:items-start lg:gap-16">
             <div className="animate-fade-up">
               <div className="flex items-center gap-4">
                 <FELogo size={72} className="shrink-0" />
@@ -51,7 +51,7 @@ export default function Page() {
               </p>
             </div>
 
-            <div className="md:sticky md:top-12 md:self-start">
+            <div className="lg:sticky lg:top-12 lg:self-start">
               <HomeFormCard
                 requestLabel={content.request.label}
                 requestTitle="Tell us a little about your family."

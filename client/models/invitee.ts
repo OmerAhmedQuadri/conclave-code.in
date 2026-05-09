@@ -1,10 +1,14 @@
 import type { ObjectId } from "mongodb";
 import type { RegisterFormData } from "@/models/register";
-import type { HearAbout } from "@/models/request-invite";
+import type { HearAbout, RequesterRole } from "@/models/request-invite";
 
 export interface RequestInviteData {
+  role: RequesterRole;
   studentName: string;
   studentAge: string;
+  studentPhone: string;
+  studentEmail?: string;
+  parentPhone?: string;
   school: string;
   city: string;
   hearAbout: HearAbout;

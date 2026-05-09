@@ -29,12 +29,10 @@ export function FELogo({ className, size = 64 }: FELogoProps) {
       />
       {/* F */}
       <g fill="#F5F5F0">
-        <rect x="125" y="175" width="46" height="250" />
-        <rect x="125" y="175" width="180" height="46" />
-        <rect x="125" y="270" width="125" height="42" />
+        <rect x="155" y="175" width="46" height="250" />
+        <rect x="155" y="175" width="180" height="46" />
+        <rect x="155" y="270" width="125" height="42" />
       </g>
-      {/* gold dot */}
-      <circle cx="310" cy="425" r="22" fill="#D4A843" />
       {/* E */}
       <g fill="#F5F5F0">
         <rect x="355" y="175" width="46" height="250" />

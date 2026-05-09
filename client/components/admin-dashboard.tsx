@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,8 +38,12 @@ export interface InviteeRow {
   referralCode?: string;
   formData?: Record<string, unknown>;
   requestData?: {
+    role?: "student" | "parent";
     studentName?: string;
     studentAge?: string;
+    studentPhone?: string;
+    studentEmail?: string;
+    parentPhone?: string;
     school?: string;
     city?: string;
     hearAbout?: string;
@@ -84,21 +88,25 @@ const portalStatusLabel: Record<InviteeRow["status"], string> = {
   rejected: "Rejected",
 };
 
+// Each badge has a tinted background that works in both modes; the text uses
+// a darker shade for light mode (default) and a lighter shade for dark mode.
 const statusColors: Record<InviteeRow["status"], string> = {
-  requested: "bg-blue-500/15 text-blue-300",
+  requested: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
   invited: "bg-cream/10 text-cream-70",
   registered: "bg-cream/10 text-cream-70",
   otp_verified: "bg-gold/15 text-gold",
-  approved: "bg-emerald-500/15 text-emerald-300",
+  approved: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-700 dark:text-emerald-300",
   rejected: "bg-destructive/15 text-destructive",
 };
 
 function fmtDate(iso?: string) {
   if (!iso) return null;
-  return new Date(iso).toLocaleDateString("en-IN", {
+  return new Date(iso).toLocaleString("en-IN", {
     day: "numeric",
     month: "short",
     year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -127,10 +135,43 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectionMode, setSelectionMode] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  const adminRows = rows.filter((r) => r.source === "admin");
-  const portalRows = rows.filter((r) => r.source === "portal" || !r.source);
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const ALL_SCHOOLS = "__all__";
+  const OTHER_SCHOOLS = "__other__";
+  const [schoolFilter, setSchoolFilter] = useState<string>(ALL_SCHOOLS);
+  const [schoolList, setSchoolList] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/admin/schools")
+      .then((r) => r.json())
+      .then((j: { ok: boolean; schools?: { id: string; name: string }[] }) => {
+        if (j.ok && j.schools) setSchoolList(j.schools);
+      })
+      .catch(() => {});
+  }, []);
+
+  const knownSchoolNames = new Set(schoolList.map((s) => s.name));
+  const schoolFilteredRows =
+    schoolFilter === ALL_SCHOOLS
+      ? rows
+      : schoolFilter === OTHER_SCHOOLS
+        ? rows.filter((r) => {
+            const s = r.requestData?.school;
+            return Boolean(s) && !knownSchoolNames.has(s!);
+          })
+        : rows.filter((r) => r.requestData?.school === schoolFilter);
+
+  const adminRows = schoolFilteredRows.filter((r) => r.source === "admin");
+  const portalRows = schoolFilteredRows.filter(
+    (r) => r.source === "portal" || !r.source
+  );
 
   const adminCounts = {
     all: adminRows.length,
@@ -148,17 +189,17 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
   };
 
   const allCounts = {
-    all: rows.length,
-    accepted: rows.filter((r) => r.status === "approved").length,
-    others: rows.filter((r) => r.status !== "approved").length,
+    all: schoolFilteredRows.length,
+    accepted: schoolFilteredRows.filter((r) => r.status === "approved").length,
+    others: schoolFilteredRows.filter((r) => r.status !== "approved").length,
   };
 
   const filteredAll =
     allFilter === "all"
-      ? rows
+      ? schoolFilteredRows
       : allFilter === "accepted"
-        ? rows.filter((r) => r.status === "approved")
-        : rows.filter((r) => r.status !== "approved");
+        ? schoolFilteredRows.filter((r) => r.status === "approved")
+        : schoolFilteredRows.filter((r) => r.status !== "approved");
 
   const filteredAdmin =
     adminFilter === "all"
@@ -200,8 +241,6 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
     });
   };
 
-  const clearSelection = () => setSelectedIds(new Set());
-
   const selectAllVisible = (visibleRows: InviteeRow[], checked: boolean) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -237,7 +276,7 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
       if (json.failed > 0) {
         setError(`${json.succeeded} updated, ${json.failed} skipped (status not eligible).`);
       }
-      clearSelection();
+      exitSelectionMode();
       refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -261,38 +300,14 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
     refresh();
   };
 
-  const resendInvite = async (email: string) => {
-    setError(null);
-    const res = await fetch("/api/admin/invite", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const json = (await res.json()) as { ok: boolean; message?: string };
-    if (!json.ok) {
-      setError(json.message ?? "Could not resend");
-      return;
-    }
-    refresh();
-  };
-
-  const deleteInvitee = async (id: string, email: string) => {
-    if (!confirm(`Permanently delete ${email}? This cannot be undone.`)) return;
-    setError(null);
-    const res = await fetch(`/api/admin/invitees/${id}`, { method: "DELETE" });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
-    if (!json.ok) {
-      setError(json.message ?? "Could not delete");
-      return;
-    }
-    refresh();
-  };
-
   return (
     <main className="container max-w-6xl space-y-10 py-10 md:py-14">
-      {/* Bento: stats on the left, send-invitation on the right */}
+      {/* Bento: stats on the left, send-invitation on the right.
+          On mobile: stats sit in a single 3-column row above the form so we
+          don't burn a screenful of vertical space. On md+: stats stack
+          vertically alongside the form. */}
       <div className="grid gap-4 md:grid-cols-[minmax(220px,1fr)_2fr]">
-        <div className="grid gap-4">
+        <div className="grid grid-cols-3 gap-3 md:grid-cols-1 md:gap-4">
           <StatCard label="Total" value={rows.length} />
           <StatCard
             label="Pending portal requests"
@@ -304,26 +319,47 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
         <InviteForm onSent={refresh} />
       </div>
 
-      {/* Main segment toggle */}
-      <div className="flex flex-wrap gap-2 border-b border-border">
-        <SegmentTab
-          active={segment === "all"}
-          onClick={() => setSegment("all")}
-          label="All"
-          count={rows.length}
-        />
-        <SegmentTab
-          active={segment === "portal"}
-          onClick={() => setSegment("portal")}
-          label="Portal requests"
-          count={portalCounts.all}
-        />
-        <SegmentTab
-          active={segment === "admin"}
-          onClick={() => setSegment("admin")}
-          label="Admin invited"
-          count={adminCounts.all}
-        />
+      {/* Main segment toggle + school filter */}
+      <div className="space-y-3 border-b border-border lg:flex lg:flex-wrap lg:items-end lg:justify-between lg:gap-3 lg:space-y-0">
+        <div className="flex flex-wrap gap-2">
+          <SegmentTab
+            active={segment === "all"}
+            onClick={() => setSegment("all")}
+            label="All"
+            count={schoolFilteredRows.length}
+          />
+          <SegmentTab
+            active={segment === "portal"}
+            onClick={() => setSegment("portal")}
+            label="Portal requests"
+            count={portalCounts.all}
+          />
+          <SegmentTab
+            active={segment === "admin"}
+            onClick={() => setSegment("admin")}
+            label="Admin invited"
+            count={adminCounts.all}
+          />
+        </div>
+        <div className="flex w-full items-center gap-2 pb-3 lg:-mb-px lg:w-auto lg:pb-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-cream-40">
+            School
+          </span>
+          <Select value={schoolFilter} onValueChange={setSchoolFilter}>
+            <SelectTrigger className="h-9 min-w-0 flex-1 lg:w-72 lg:flex-initial [&>span]:min-w-0 [&>span]:truncate">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_SCHOOLS}>All schools</SelectItem>
+              {schoolList.map((s) => (
+                <SelectItem key={s.id} value={s.name}>
+                  {s.name}
+                </SelectItem>
+              ))}
+              <SelectItem value={OTHER_SCHOOLS}>Other (not listed)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {error && (
@@ -352,12 +388,12 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
           segment="all"
           pending={pending}
           onDecide={decide}
-          onResend={resendInvite}
-          onDelete={deleteInvitee}
+          selectionMode={selectionMode}
+          onEnterSelectionMode={() => setSelectionMode(true)}
+          onExitSelectionMode={exitSelectionMode}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelected}
           onSelectAllVisible={selectAllVisible}
-          onClearSelection={clearSelection}
           onBulkDecide={bulkDecide}
           bulkBusy={bulkBusy}
         />
@@ -382,12 +418,12 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
           segment="portal"
           pending={pending}
           onDecide={decide}
-          onResend={resendInvite}
-          onDelete={deleteInvitee}
+          selectionMode={selectionMode}
+          onEnterSelectionMode={() => setSelectionMode(true)}
+          onExitSelectionMode={exitSelectionMode}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelected}
           onSelectAllVisible={selectAllVisible}
-          onClearSelection={clearSelection}
           onBulkDecide={bulkDecide}
           bulkBusy={bulkBusy}
         />
@@ -411,12 +447,12 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
           segment="admin"
           pending={pending}
           onDecide={decide}
-          onResend={resendInvite}
-          onDelete={deleteInvitee}
+          selectionMode={selectionMode}
+          onEnterSelectionMode={() => setSelectionMode(true)}
+          onExitSelectionMode={exitSelectionMode}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelected}
           onSelectAllVisible={selectAllVisible}
-          onClearSelection={clearSelection}
           onBulkDecide={bulkDecide}
           bulkBusy={bulkBusy}
         />
@@ -488,12 +524,12 @@ function Section({
   segment,
   pending,
   onDecide,
-  onResend,
-  onDelete,
+  selectionMode,
+  onEnterSelectionMode,
+  onExitSelectionMode,
   selectedIds,
   onToggleSelect,
   onSelectAllVisible,
-  onClearSelection,
   onBulkDecide,
   bulkBusy,
 }: {
@@ -502,12 +538,12 @@ function Section({
   segment: Segment;
   pending: boolean;
   onDecide: (token: string, d: "approve" | "reject") => void;
-  onResend: (email: string) => void;
-  onDelete: (id: string, email: string) => void;
+  selectionMode: boolean;
+  onEnterSelectionMode: () => void;
+  onExitSelectionMode: () => void;
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   onSelectAllVisible: (rows: InviteeRow[], checked: boolean) => void;
-  onClearSelection: () => void;
   onBulkDecide: (decision: "approve" | "reject") => void;
   bulkBusy: boolean;
 }) {
@@ -518,11 +554,53 @@ function Section({
   const approveCount = selectedRows.filter(isDecidable).length;
   const rejectCount = selectedRows.filter(isRejectable).length;
 
+  // Sort state for the CHECKS and DATE columns. Click toggles direction;
+  // first click on a column sorts descending (most recent / highest first).
+  const [sort, setSort] = useState<{
+    col: "checks" | "date";
+    dir: "asc" | "desc";
+  } | null>(null);
+
+  const onHeaderClick = (col: "checks" | "date") => {
+    setSort((prev) => {
+      if (!prev || prev.col !== col) return { col, dir: "desc" };
+      return { col, dir: prev.dir === "desc" ? "asc" : "desc" };
+    });
+  };
+
+  const sortedRows = (() => {
+    if (!sort) return rows;
+    const get = (r: InviteeRow): number => {
+      if (sort.col === "checks") return r.refreshCount ?? 0;
+      const iso = relevantDate(r);
+      return iso ? new Date(iso).getTime() : 0;
+    };
+    const copy = [...rows];
+    copy.sort((a, b) => {
+      const diff = get(a) - get(b);
+      return sort.dir === "asc" ? diff : -diff;
+    });
+    return copy;
+  })();
+
+  const colCount = selectionMode ? 7 : 6;
+
   return (
     <section className="space-y-4">
-      {filterPills}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex-1">{filterPills}</div>
+        {selectionMode ? (
+          <Button size="sm" variant="ghost" onClick={onExitSelectionMode} disabled={bulkBusy}>
+            Cancel
+          </Button>
+        ) : (
+          <Button size="sm" variant="secondary" onClick={onEnterSelectionMode}>
+            Select
+          </Button>
+        )}
+      </div>
 
-      {selectedIds.size > 0 && (
+      {selectionMode && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gold/40 bg-gold/5 px-4 py-2">
           <p className="text-sm text-cream">
             <span className="font-semibold text-gold">{selectedIds.size}</span> selected
@@ -535,61 +613,72 @@ function Section({
             >
               {bulkBusy ? "Working..." : `Approve (${approveCount})`}
             </Button>
-            {rejectCount > 0 && (
+            {segment !== "admin" && (
               <Button
                 size="sm"
                 variant="secondary"
-                disabled={bulkBusy}
+                disabled={bulkBusy || rejectCount === 0}
                 onClick={() => onBulkDecide("reject")}
               >
                 Reject ({rejectCount})
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={onClearSelection} disabled={bulkBusy}>
-              Clear
-            </Button>
           </div>
         </div>
       )}
 
       <div className="overflow-x-auto rounded-md border border-border">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-card text-left">
             <tr>
-              <th className="w-px px-4 py-3">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 cursor-pointer accent-gold disabled:opacity-30"
-                  aria-label="Select all decidable rows"
-                  checked={allDecidableSelected}
-                  disabled={decidableVisible.length === 0}
-                  onChange={(e) => onSelectAllVisible(decidableVisible, e.target.checked)}
-                />
-              </th>
+              {selectionMode && (
+                <th className="w-px px-4 py-3">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 cursor-pointer accent-gold disabled:opacity-30"
+                    aria-label="Select all decidable rows"
+                    checked={allDecidableSelected}
+                    disabled={decidableVisible.length === 0}
+                    onChange={(e) => onSelectAllVisible(decidableVisible, e.target.checked)}
+                  />
+                </th>
+              )}
               <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">EMAIL</th>
               <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">NAME</th>
               <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">STATUS</th>
-              <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">DATE</th>
+              <SortableHeader
+                label="CHECKS"
+                col="checks"
+                activeCol={sort?.col ?? null}
+                dir={sort?.dir ?? null}
+                onClick={() => onHeaderClick("checks")}
+              />
+              <SortableHeader
+                label="DATE"
+                col="date"
+                activeCol={sort?.col ?? null}
+                dir={sort?.dir ?? null}
+                onClick={() => onHeaderClick("date")}
+              />
               <th className="w-px px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">ACTIONS</th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
+            {sortedRows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-cream-40">
+                <td colSpan={colCount} className="px-4 py-8 text-center text-cream-40">
                   Nothing here yet.
                 </td>
               </tr>
             )}
-            {rows.map((row) => (
+            {sortedRows.map((row) => (
               <Row
                 key={row.id}
                 row={row}
                 segment={segment}
                 pending={pending}
                 onDecide={onDecide}
-                onResend={onResend}
-                onDelete={onDelete}
+                selectionMode={selectionMode}
                 selected={selectedIds.has(row.id)}
                 onToggleSelect={onToggleSelect}
               />
@@ -598,6 +687,39 @@ function Section({
         </table>
       </div>
     </section>
+  );
+}
+
+function SortableHeader({
+  label,
+  col,
+  activeCol,
+  dir,
+  onClick,
+}: {
+  label: string;
+  col: "checks" | "date";
+  activeCol: "checks" | "date" | null;
+  dir: "asc" | "desc" | null;
+  onClick: () => void;
+}) {
+  const active = activeCol === col;
+  return (
+    <th className="px-4 py-3 font-mono text-[11px] tracking-[0.2em] text-cream-40">
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(
+          "flex items-center gap-1 transition-colors hover:text-gold",
+          active && "text-gold"
+        )}
+      >
+        <span>{label}</span>
+        <span aria-hidden className="font-sans text-[10px]">
+          {active ? (dir === "asc" ? "↑" : "↓") : "↕"}
+        </span>
+      </button>
+    </th>
   );
 }
 
@@ -628,8 +750,7 @@ function Row({
   segment,
   pending,
   onDecide,
-  onResend,
-  onDelete,
+  selectionMode,
   selected,
   onToggleSelect,
 }: {
@@ -637,8 +758,7 @@ function Row({
   segment: Segment;
   pending: boolean;
   onDecide: (token: string, d: "approve" | "reject") => void;
-  onResend: (email: string) => void;
-  onDelete: (id: string, email: string) => void;
+  selectionMode: boolean;
   selected: boolean;
   onToggleSelect: (id: string) => void;
 }) {
@@ -650,7 +770,6 @@ function Row({
   const canDecide =
     row.status === "requested" ||
     (row.status === "otp_verified" && row.source !== "portal");
-  const canResend = row.status === "invited";
   const emailChanged =
     Boolean(row.originalEmail) &&
     row.originalEmail!.toLowerCase() !== row.email.toLowerCase();
@@ -665,48 +784,50 @@ function Row({
     Boolean(row.refreshCount);
 
   const decidable = isDecidable(row);
+  const colCount = selectionMode ? 7 : 6;
 
   return (
     <>
-      <tr className="border-t border-border align-top">
-        <td className="w-px px-4 py-3 align-top">
-          <input
-            type="checkbox"
-            className="mt-1 h-4 w-4 cursor-pointer accent-gold disabled:cursor-not-allowed disabled:opacity-30"
-            checked={selected}
-            disabled={!decidable}
-            onChange={() => onToggleSelect(row.id)}
-            aria-label={
-              decidable ? `Select ${row.email}` : `${row.email} is not decidable`
-            }
-          />
-        </td>
+      <tr
+        className={cn(
+          "border-t border-border align-top",
+          hasDetails && "cursor-pointer transition-colors hover:bg-card/40"
+        )}
+        onClick={() => {
+          if (hasDetails) setOpen((o) => !o);
+        }}
+      >
+        {selectionMode && (
+          <td
+            className="w-px px-4 py-3 align-top"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 cursor-pointer accent-gold disabled:cursor-not-allowed disabled:opacity-30"
+              checked={selected}
+              disabled={!decidable}
+              onChange={() => onToggleSelect(row.id)}
+              aria-label={
+                decidable ? `Select ${row.email}` : `${row.email} is not decidable`
+              }
+            />
+          </td>
+        )}
         <td className="px-4 py-3 text-cream">
           <span className="block">{row.email}</span>
           <div className="mt-0.5 flex flex-wrap gap-1">
             {row.originalEmail && row.originalEmail.toLowerCase() !== row.email.toLowerCase() && (
               <span
-                className="inline-block rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber-300"
+                className="inline-block rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300"
                 title={`Originally invited as ${row.originalEmail}`}
               >
                 Email changed
               </span>
             )}
-            {row.refreshCount && row.refreshCount > 0 ? (
-              <span
-                className="inline-block rounded bg-sky-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-sky-300"
-                title={
-                  row.lastRefreshedAt
-                    ? `Last checked ${fmtDate(row.lastRefreshedAt) ?? ""}`
-                    : undefined
-                }
-              >
-                {row.refreshCount} {row.refreshCount === 1 ? "check" : "checks"}
-              </span>
-            ) : null}
             {row.referralCode && (
               <span
-                className="inline-block rounded bg-purple-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-purple-300"
+                className="inline-block rounded bg-purple-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-purple-700 dark:text-purple-300"
                 title={`Referral code: ${row.referralCode}`}
               >
                 ref · {row.referralCode}
@@ -728,61 +849,56 @@ function Row({
             row.autoApproveMode === "delayed" &&
             row.autoApproveAfter && <AutoApproveBadge after={row.autoApproveAfter} />}
           {row.status === "approved" && row.decidedBy === "auto" && (
-            <span className="ml-1 inline-block rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-300">
+            <span className="ml-1 inline-block rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
               auto
             </span>
           )}
         </td>
-        <td className="px-4 py-3 text-xs text-cream-40">{fmtDate(relevantDate(row)) ?? "—"}</td>
-        <td className="whitespace-nowrap px-4 py-3">
-          <div className="flex gap-2">
-            {hasDetails && (
-              <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)}>
-                {open ? "Hide" : "Details"}
-              </Button>
-            )}
-            {canDecide && (
-              <>
-                <Button size="sm" disabled={pending} onClick={() => onDecide(row.token, "approve")}>
-                  Approve
-                </Button>
-                {!isAdminInvited && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={pending}
-                    onClick={() => onDecide(row.token, "reject")}
-                  >
-                    Reject
-                  </Button>
-                )}
-              </>
-            )}
-            {canResend && (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={pending}
-                onClick={() => onResend(row.email)}
-              >
-                Resend invite
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={pending}
-              onClick={() => onDelete(row.id, row.email)}
-              className="text-destructive hover:border-destructive/60 hover:text-destructive"
+        <td className="px-4 py-3 text-cream-70">
+          {row.refreshCount && row.refreshCount > 0 ? (
+            <span
+              className="inline-block rounded bg-sky-500/15 px-2 py-0.5 font-mono text-xs text-sky-700 dark:text-sky-300"
+              title={
+                row.lastRefreshedAt
+                  ? `Last checked ${fmtDate(row.lastRefreshedAt) ?? ""}`
+                  : undefined
+              }
             >
-              Delete
-            </Button>
-          </div>
+              {row.refreshCount}
+            </span>
+          ) : (
+            <span className="text-cream-40">—</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-xs text-cream-40">{fmtDate(relevantDate(row)) ?? "—"}</td>
+        <td
+          className="whitespace-nowrap px-4 py-3"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {canDecide ? (
+            <div className="flex gap-2">
+              <Button size="sm" disabled={pending} onClick={() => onDecide(row.token, "approve")}>
+                Approve
+              </Button>
+              {!isAdminInvited && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={pending}
+                  onClick={() => onDecide(row.token, "reject")}
+                >
+                  Reject
+                </Button>
+              )}
+            </div>
+          ) : (
+            <span className="text-cream-40">—</span>
+          )}
         </td>
       </tr>
       {open && hasDetails && (
         <tr className="border-t border-border bg-card/60">
-          <td colSpan={6} className="px-4 py-4">
+          <td colSpan={colCount} className="px-4 py-4">
             <dl className="grid gap-3 sm:grid-cols-2">
               {emailChanged && row.originalEmail && (
                 <Detail label="Originally invited as" value={row.originalEmail} />
@@ -802,8 +918,29 @@ function Row({
               {row.decidedBy && (
                 <Detail label="Decided by" value={row.decidedBy} />
               )}
+              {row.requestData?.role && (
+                <Detail
+                  label="Requester"
+                  value={row.requestData.role === "student" ? "Student" : "Parent"}
+                />
+              )}
               {row.requestData?.studentName && (
-                <Detail label="Student" value={`${row.requestData.studentName}${row.requestData.studentAge ? `, ${row.requestData.studentAge}` : ""}`} />
+                <Detail
+                  label={row.requestData?.role === "student" ? "About them" : "Student"}
+                  value={`${row.requestData.studentName}${row.requestData.studentAge ? `, ${row.requestData.studentAge}` : ""}`}
+                />
+              )}
+              {row.requestData?.parentPhone && (
+                <Detail label="Parent's phone" value={row.requestData.parentPhone} />
+              )}
+              {row.requestData?.studentEmail && (
+                <Detail label="Student's email" value={row.requestData.studentEmail} />
+              )}
+              {row.requestData?.studentPhone && (
+                <Detail
+                  label={row.requestData?.role === "student" ? "Phone" : "Student's phone"}
+                  value={row.requestData.studentPhone}
+                />
               )}
               {row.requestData?.school && <Detail label="School" value={row.requestData.school} />}
               {row.requestData?.city && <Detail label="City" value={row.requestData.city} />}
@@ -852,7 +989,7 @@ function AutoApproveBadge({ after }: { after: string }) {
   if (ms <= 0) {
     return (
       <span
-        className="ml-1 inline-block rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-300"
+        className="ml-1 inline-block rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300"
         title={`Will auto-approve on next refresh`}
       >
         auto-approving
@@ -863,7 +1000,7 @@ function AutoApproveBadge({ after }: { after: string }) {
   const label = mins >= 60 ? `${Math.ceil(mins / 60)}h` : `${mins}m`;
   return (
     <span
-      className="ml-1 inline-block rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber-300"
+      className="ml-1 inline-block rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300"
       title={`Auto-approves in ${label}`}
     >
       auto in {label}
@@ -1007,7 +1144,7 @@ function InviteForm({ onSent }: { onSent: () => void }) {
           className={cn(
             "mt-4 rounded-md border p-3 text-sm",
             feedback.type === "ok"
-              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
               : "border-destructive/40 bg-destructive/10 text-destructive"
           )}
           role={feedback.type === "err" ? "alert" : undefined}

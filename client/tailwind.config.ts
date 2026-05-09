@@ -12,26 +12,36 @@ const config: Config = {
     },
     extend: {
       colors: {
-        // code.in brand
-        ink: "#1A1A1A",
+        // code.in brand — driven by CSS vars in app/globals.css.
+        // The `<alpha-value>` token lets utilities like `bg-gold/30` apply opacity.
+        ink: "rgb(var(--color-ink) / <alpha-value>)",
         gold: {
-          DEFAULT: "#D4A843",
-          muted: "#A88534",
+          DEFAULT: "rgb(var(--color-gold) / <alpha-value>)",
+          muted: "rgb(var(--color-gold-muted) / <alpha-value>)",
         },
         cream: {
-          DEFAULT: "#F5F5F0",
-          70: "#B5B5AE",
-          40: "#6B6B68",
+          DEFAULT: "rgb(var(--color-cream) / <alpha-value>)",
+          70: "rgb(var(--color-cream-70) / <alpha-value>)",
+          40: "rgb(var(--color-cream-40) / <alpha-value>)",
         },
-        card: "#222222",
-        border: "#2D2D2D",
+        card: "rgb(var(--color-card) / <alpha-value>)",
+        border: "rgb(var(--color-border) / <alpha-value>)",
         // shadcn semantic tokens (mapped to brand)
-        background: "#1A1A1A",
-        foreground: "#F5F5F0",
-        primary: { DEFAULT: "#D4A843", foreground: "#1A1A1A" },
-        muted: { DEFAULT: "#222222", foreground: "#B5B5AE" },
-        destructive: { DEFAULT: "#E04848", foreground: "#F5F5F0" },
-        ring: "#D4A843",
+        background: "rgb(var(--color-background) / <alpha-value>)",
+        foreground: "rgb(var(--color-foreground) / <alpha-value>)",
+        primary: {
+          DEFAULT: "rgb(var(--color-primary) / <alpha-value>)",
+          foreground: "rgb(var(--color-primary-foreground) / <alpha-value>)",
+        },
+        muted: {
+          DEFAULT: "rgb(var(--color-muted) / <alpha-value>)",
+          foreground: "rgb(var(--color-muted-foreground) / <alpha-value>)",
+        },
+        destructive: {
+          DEFAULT: "rgb(var(--color-destructive) / <alpha-value>)",
+          foreground: "rgb(var(--color-destructive-foreground) / <alpha-value>)",
+        },
+        ring: "rgb(var(--color-ring) / <alpha-value>)",
       },
       fontFamily: {
         heading: ["var(--font-heading)", "system-ui", "sans-serif"],
