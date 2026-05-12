@@ -1,11 +1,10 @@
-import { invitees, type InviteeDoc } from "@/lib/db";
+import { invitees, type InviteeDoc, volunteers } from "@/lib/db";
 import { AdminDashboard, type InviteeRow } from "@/components/admin-dashboard";
 import { processAutoApprovals } from "@/lib/auto-approve";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  // Run any due auto-approvals before reading the list
   await processAutoApprovals().catch((err) =>
     console.error("[dashboard] auto-approve failed:", err)
   );
@@ -15,6 +14,19 @@ export default async function DashboardPage() {
     .find({}, { projection: { otp: 0, otpExpiresAt: 0, otpAttempts: 0 } })
     .sort({ requestedAt: -1, invitedAt: -1 })
     .toArray();
+
+  // Resolve volunteer names for any assigned invitees
+  const volIds = docs
+    .map((d) => d.assignedVolunteerId)
+    .filter((v): v is NonNullable<typeof v> => Boolean(v));
+  const volMap = new Map<string, string>();
+  if (volIds.length > 0) {
+    const volCol = await volunteers();
+    const volDocs = await volCol
+      .find({ _id: { $in: volIds } }, { projection: { name: 1 } })
+      .toArray();
+    for (const v of volDocs) volMap.set(v._id?.toString() ?? "", v.name);
+  }
 
   const rows: InviteeRow[] = docs.map((d: InviteeDoc) => ({
     id: d._id?.toString() ?? "",
@@ -37,6 +49,10 @@ export default async function DashboardPage() {
     refreshCount: d.refreshCount,
     lastRefreshedAt: d.lastRefreshedAt?.toISOString(),
     referralCode: d.referralCode,
+    assignedVolunteerId: d.assignedVolunteerId?.toString(),
+    assignedVolunteerName: d.assignedVolunteerId
+      ? volMap.get(d.assignedVolunteerId.toString())
+      : undefined,
     formData: d.formData,
     requestData: d.requestData,
   }));

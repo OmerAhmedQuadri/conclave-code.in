@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { InviteeListItem } from "@/models/invitee";
 import { isAdmin } from "@/lib/admin-auth";
-import { invitees } from "@/lib/db";
+import { invitees, volunteers } from "@/lib/db";
 import { processAutoApprovals } from "@/lib/auto-approve";
 
 export async function GET() {
@@ -18,6 +18,26 @@ export async function GET() {
     .find({}, { projection: { otp: 0, otpExpiresAt: 0, otpAttempts: 0 } })
     .sort({ invitedAt: -1 })
     .toArray();
+
+  // Build a name lookup for any volunteers referenced in the list
+  const volIds = Array.from(
+    new Set(
+      docs
+        .map((d) => d.assignedVolunteerId?.toString())
+        .filter((v): v is string => Boolean(v))
+    )
+  );
+  const volMap = new Map<string, string>();
+  if (volIds.length > 0) {
+    const volCol = await volunteers();
+    const volDocs = await volCol
+      .find(
+        { _id: { $in: docs.map((d) => d.assignedVolunteerId).filter(Boolean) as never } },
+        { projection: { name: 1 } }
+      )
+      .toArray();
+    for (const v of volDocs) volMap.set(v._id?.toString() ?? "", v.name);
+  }
 
   const list: InviteeListItem[] = docs.map((d) => ({
     id: d._id?.toString(),
@@ -40,6 +60,10 @@ export async function GET() {
     refreshCount: d.refreshCount,
     lastRefreshedAt: d.lastRefreshedAt,
     referralCode: d.referralCode,
+    assignedVolunteerId: d.assignedVolunteerId?.toString(),
+    assignedVolunteerName: d.assignedVolunteerId
+      ? volMap.get(d.assignedVolunteerId.toString())
+      : undefined,
     formData: d.formData,
     requestData: d.requestData,
   }));

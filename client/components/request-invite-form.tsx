@@ -108,7 +108,7 @@ export function RequestInviteForm({ onCheckStatus }: RequestInviteFormProps = {}
         ) : (
           <span className="hidden sm:inline" />
         )}
-        <Button type="submit" size="lg" disabled={submitting}>
+        <Button type="submit" size="default" disabled={submitting}>
           {submitting ? "Sending..." : "Request invite"}
         </Button>
       </div>

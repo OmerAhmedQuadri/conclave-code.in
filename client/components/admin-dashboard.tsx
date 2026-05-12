@@ -36,6 +36,8 @@ export interface InviteeRow {
   refreshCount?: number;
   lastRefreshedAt?: string;
   referralCode?: string;
+  assignedVolunteerId?: string;
+  assignedVolunteerName?: string;
   formData?: Record<string, unknown>;
   requestData?: {
     role?: "student" | "parent";
@@ -147,6 +149,9 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
   const OTHER_SCHOOLS = "__other__";
   const [schoolFilter, setSchoolFilter] = useState<string>(ALL_SCHOOLS);
   const [schoolList, setSchoolList] = useState<{ id: string; name: string }[]>([]);
+  const [volunteerList, setVolunteerList] = useState<{ id: string; name: string; email: string }[]>(
+    []
+  );
 
   useEffect(() => {
     fetch("/api/admin/schools")
@@ -155,7 +160,48 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
         if (j.ok && j.schools) setSchoolList(j.schools);
       })
       .catch(() => {});
+    fetch("/api/admin/volunteers")
+      .then((r) => r.json())
+      .then((j: { ok: boolean; volunteers?: { id: string; name: string; email: string }[] }) => {
+        if (j.ok && j.volunteers) setVolunteerList(j.volunteers);
+      })
+      .catch(() => {});
   }, []);
+
+  const assignSelected = async (volunteerId: string) => {
+    const ids = rows.filter((r) => selectedIds.has(r.id) && r.status === "approved").map((r) => r.id);
+    if (ids.length === 0) {
+      setError("Only approved invitees can be assigned. Pick one or more first.");
+      return;
+    }
+    const isUnassign = volunteerId === "__unassign__";
+    if (
+      !confirm(
+        isUnassign
+          ? `Unassign volunteer from ${ids.length} invitee(s)?`
+          : `Assign ${ids.length} invitee(s) to this volunteer?`
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setBulkBusy(true);
+    try {
+      const res = await fetch("/api/admin/invitees/assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ volunteerId, inviteeIds: ids }),
+      });
+      const json = (await res.json()) as { ok: boolean; message?: string; modified?: number };
+      if (!json.ok) throw new Error(json.message ?? "Could not assign");
+      exitSelectionMode();
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   const knownSchoolNames = new Set(schoolList.map((s) => s.name));
   const schoolFilteredRows =
@@ -395,6 +441,8 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
           onToggleSelect={toggleSelected}
           onSelectAllVisible={selectAllVisible}
           onBulkDecide={bulkDecide}
+          onAssign={assignSelected}
+          volunteerList={volunteerList}
           bulkBusy={bulkBusy}
         />
       )}
@@ -425,6 +473,8 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
           onToggleSelect={toggleSelected}
           onSelectAllVisible={selectAllVisible}
           onBulkDecide={bulkDecide}
+          onAssign={assignSelected}
+          volunteerList={volunteerList}
           bulkBusy={bulkBusy}
         />
       )}
@@ -454,6 +504,8 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
           onToggleSelect={toggleSelected}
           onSelectAllVisible={selectAllVisible}
           onBulkDecide={bulkDecide}
+          onAssign={assignSelected}
+          volunteerList={volunteerList}
           bulkBusy={bulkBusy}
         />
       )}
@@ -531,6 +583,8 @@ function Section({
   onToggleSelect,
   onSelectAllVisible,
   onBulkDecide,
+  onAssign,
+  volunteerList,
   bulkBusy,
 }: {
   filterPills: React.ReactNode;
@@ -545,6 +599,8 @@ function Section({
   onToggleSelect: (id: string) => void;
   onSelectAllVisible: (rows: InviteeRow[], checked: boolean) => void;
   onBulkDecide: (decision: "approve" | "reject") => void;
+  onAssign: (volunteerId: string) => void;
+  volunteerList: { id: string; name: string; email: string }[];
   bulkBusy: boolean;
 }) {
   const decidableVisible = rows.filter(isDecidable);
@@ -553,6 +609,7 @@ function Section({
   const selectedRows = rows.filter((r) => selectedIds.has(r.id));
   const approveCount = selectedRows.filter(isDecidable).length;
   const rejectCount = selectedRows.filter(isRejectable).length;
+  const approvedSelectedCount = selectedRows.filter((r) => r.status === "approved").length;
 
   // Sort state for the CHECKS and DATE columns. Click toggles direction;
   // first click on a column sorts descending (most recent / highest first).
@@ -623,6 +680,33 @@ function Section({
                 Reject ({rejectCount})
               </Button>
             )}
+            <Select
+              value=""
+              onValueChange={(v) => {
+                if (v) onAssign(v);
+              }}
+              disabled={bulkBusy || approvedSelectedCount === 0 || volunteerList.length === 0}
+            >
+              <SelectTrigger className="h-8 w-44 [&>span]:min-w-0 [&>span]:truncate">
+                <SelectValue
+                  placeholder={
+                    volunteerList.length === 0
+                      ? "No volunteers"
+                      : approvedSelectedCount === 0
+                        ? "Assign (need approved)"
+                        : `Assign ${approvedSelectedCount} →`
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {volunteerList.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.name}
+                  </SelectItem>
+                ))}
+                <SelectItem value="__unassign__">— Unassign —</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       )}
@@ -780,6 +864,7 @@ function Row({
     Boolean(row.invitedBy) ||
     Boolean(row.decidedBy) ||
     Boolean(row.referralCode) ||
+    Boolean(row.assignedVolunteerName) ||
     emailChanged ||
     Boolean(row.refreshCount);
 
@@ -831,6 +916,14 @@ function Row({
                 title={`Referral code: ${row.referralCode}`}
               >
                 ref · {row.referralCode}
+              </span>
+            )}
+            {row.assignedVolunteerName && (
+              <span
+                className="inline-block rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300"
+                title={`Assigned to ${row.assignedVolunteerName}`}
+              >
+                vol · {row.assignedVolunteerName}
               </span>
             )}
           </div>
@@ -905,6 +998,9 @@ function Row({
               )}
               {row.referralCode && (
                 <Detail label="Referral code" value={row.referralCode} />
+              )}
+              {row.assignedVolunteerName && (
+                <Detail label="Assigned volunteer" value={row.assignedVolunteerName} />
               )}
               {row.refreshCount && row.refreshCount > 0 ? (
                 <Detail

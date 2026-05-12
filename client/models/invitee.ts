@@ -40,6 +40,9 @@ export interface InviteeDoc {
   autoApproveAfter?: Date;
   refreshCount?: number;
   lastRefreshedAt?: Date;
+  assignedVolunteerId?: ObjectId;
+  assignedAt?: Date;
+  assignedBy?: string;
   otp?: string;
   otpExpiresAt?: Date;
   otpAttempts?: number;
@@ -67,6 +70,8 @@ export interface InviteeListItem {
   autoApproveAfter?: Date;
   refreshCount?: number;
   lastRefreshedAt?: Date;
+  assignedVolunteerId?: string;
+  assignedVolunteerName?: string;
   token: string;
   reason?: string;
   referralCode?: string;

@@ -3,8 +3,9 @@ import type { AdminDoc } from "@/models/admin";
 import type { InviteeDoc } from "@/models/invitee";
 import type { SchoolDoc } from "@/models/school";
 import type { PendingOtpDoc } from "@/models/pending-otp";
+import type { VolunteerDoc } from "@/models/volunteer";
 
-export type { AdminDoc, InviteeDoc, SchoolDoc, PendingOtpDoc };
+export type { AdminDoc, InviteeDoc, SchoolDoc, PendingOtpDoc, VolunteerDoc };
 export type { InviteeStatus } from "@/models/invitee";
 
 declare global {
@@ -50,6 +51,13 @@ export async function schools(): Promise<Collection<SchoolDoc>> {
   const db = await getDb();
   const col = db.collection<SchoolDoc>("schools");
   await col.createIndex({ name: 1 }, { unique: true });
+  return col;
+}
+
+export async function volunteers(): Promise<Collection<VolunteerDoc>> {
+  const db = await getDb();
+  const col = db.collection<VolunteerDoc>("volunteers");
+  await col.createIndex({ email: 1 }, { unique: true });
   return col;
 }
 
