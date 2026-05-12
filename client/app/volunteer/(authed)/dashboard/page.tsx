@@ -37,6 +37,8 @@ export default async function VolunteerDashboardPage() {
     decidedAt: d.decidedAt?.toISOString(),
     invitedAt: d.invitedAt?.toISOString(),
     requestedAt: d.requestedAt?.toISOString(),
+    attendedAt: d.attendedAt?.toISOString(),
+    attendedByName: d.attendedByName,
     requestData: d.requestData,
   }));
 

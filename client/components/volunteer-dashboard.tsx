@@ -12,6 +12,8 @@ export interface AssignedInvitee {
   decidedAt?: string;
   invitedAt?: string;
   requestedAt?: string;
+  attendedAt?: string;
+  attendedByName?: string;
   requestData?: {
     role?: "student" | "parent";
     studentName?: string;
@@ -96,6 +98,15 @@ function Card({ row }: { row: AssignedInvitee }) {
             {r?.role && (
               <span className="rounded bg-gold/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-gold">
                 {r.role}
+              </span>
+            )}
+            {row.attendedAt ? (
+              <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                ✓ Attended
+              </span>
+            ) : (
+              <span className="rounded bg-cream/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-cream-70">
+                Not yet
               </span>
             )}
             <span>

@@ -110,7 +110,7 @@ export async function POST(request: Request) {
 
   // Confirmation email if we just auto-approved
   if (mode === "immediate") {
-    sendConfirmationEmail({ to: email, name }).catch((err) =>
+    sendConfirmationEmail({ to: email, name, entryToken: invitee.token }).catch((err) =>
       console.error("[register] confirmation email failed:", err)
     );
   }

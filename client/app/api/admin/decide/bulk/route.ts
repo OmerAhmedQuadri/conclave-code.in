@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
     if (decision === "approve") {
       // Fire-and-forget — don't block the response on email delivery
-      sendConfirmationEmail({ to: doc.email, name: doc.name }).catch((err) =>
+      sendConfirmationEmail({ to: doc.email, name: doc.name, entryToken: doc.token }).catch((err) =>
         console.error("[decide/bulk] confirmation email failed:", doc.email, err)
       );
     }

@@ -38,6 +38,8 @@ export interface InviteeRow {
   referralCode?: string;
   assignedVolunteerId?: string;
   assignedVolunteerName?: string;
+  attendedAt?: string;
+  attendedByName?: string;
   formData?: Record<string, unknown>;
   requestData?: {
     role?: "student" | "parent";
@@ -127,6 +129,13 @@ function isRejectable(row: InviteeRow): boolean {
   return isDecidable(row) && row.source !== "admin";
 }
 
+// A row is "selectable" if the bulk action bar can do anything useful with it.
+// Decidable rows (approve/reject) and approved rows (assign volunteer) both
+// qualify.
+function isSelectable(row: InviteeRow): boolean {
+  return isDecidable(row) || row.status === "approved";
+}
+
 export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
@@ -136,6 +145,13 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
   const [portalFilter, setPortalFilter] = useState<PortalFilter>("all");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-dismiss any error / info banner after 5s with a quick fade.
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => setError(null), 5000);
+    return () => clearTimeout(timer);
+  }, [error]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -147,7 +163,10 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
 
   const ALL_SCHOOLS = "__all__";
   const OTHER_SCHOOLS = "__other__";
+  const ALL_VOLUNTEERS = "__all__";
+  const UNASSIGNED = "__unassigned__";
   const [schoolFilter, setSchoolFilter] = useState<string>(ALL_SCHOOLS);
+  const [volunteerFilter, setVolunteerFilter] = useState<string>(ALL_VOLUNTEERS);
   const [schoolList, setSchoolList] = useState<{ id: string; name: string }[]>([]);
   const [volunteerList, setVolunteerList] = useState<{ id: string; name: string; email: string }[]>(
     []
@@ -204,7 +223,7 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
   };
 
   const knownSchoolNames = new Set(schoolList.map((s) => s.name));
-  const schoolFilteredRows =
+  const bySchool =
     schoolFilter === ALL_SCHOOLS
       ? rows
       : schoolFilter === OTHER_SCHOOLS
@@ -213,6 +232,13 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
             return Boolean(s) && !knownSchoolNames.has(s!);
           })
         : rows.filter((r) => r.requestData?.school === schoolFilter);
+
+  const schoolFilteredRows =
+    volunteerFilter === ALL_VOLUNTEERS
+      ? bySchool
+      : volunteerFilter === UNASSIGNED
+        ? bySchool.filter((r) => !r.assignedVolunteerId)
+        : bySchool.filter((r) => r.assignedVolunteerId === volunteerFilter);
 
   const adminRows = schoolFilteredRows.filter((r) => r.source === "admin");
   const portalRows = schoolFilteredRows.filter(
@@ -346,6 +372,30 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
     refresh();
   };
 
+  // Shared "Volunteer" dropdown that sits next to the Status dropdown in
+  // every segment's toolbar.
+  const volunteerDropdown = (
+    <div className="flex items-center gap-2">
+      <span className="font-mono text-xs uppercase tracking-[0.2em] text-cream-70">
+        Volunteer
+      </span>
+      <Select value={volunteerFilter} onValueChange={setVolunteerFilter}>
+        <SelectTrigger className="h-9 w-48 text-sm [&>span]:min-w-0 [&>span]:truncate">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_VOLUNTEERS}>All volunteers</SelectItem>
+          <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+          {volunteerList.map((v) => (
+            <SelectItem key={v.id} value={v.id}>
+              {v.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   return (
     <main className="container max-w-6xl space-y-10 py-10 md:py-14">
       {/* Bento: stats on the left, send-invitation on the right.
@@ -388,11 +438,11 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
           />
         </div>
         <div className="flex w-full items-center gap-2 pb-3 lg:-mb-px lg:w-auto lg:pb-2">
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-cream-40">
+          <span className="font-mono text-xs uppercase tracking-[0.2em] text-cream-70">
             School
           </span>
           <Select value={schoolFilter} onValueChange={setSchoolFilter}>
-            <SelectTrigger className="h-9 min-w-0 flex-1 lg:w-72 lg:flex-initial [&>span]:min-w-0 [&>span]:truncate">
+            <SelectTrigger className="h-9 min-w-0 flex-1 text-sm lg:w-72 lg:flex-initial [&>span]:min-w-0 [&>span]:truncate">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -410,7 +460,8 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
 
       {error && (
         <p
-          className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+          key={error}
+          className="animate-fade-up rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
           role="alert"
         >
           {error}
@@ -420,15 +471,18 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
       {segment === "all" && (
         <Section
           filterPills={
-            <FilterPills
-              filters={[
-                { key: "all", label: `All (${allCounts.all})` },
-                { key: "accepted", label: `Accepted (${allCounts.accepted})` },
-                { key: "others", label: `Others (${allCounts.others})` },
-              ]}
-              active={allFilter}
-              onChange={(k) => setAllFilter(k as AllFilter)}
-            />
+            <div className="flex flex-wrap items-center gap-4">
+              <FilterPills
+                filters={[
+                  { key: "all", label: `All (${allCounts.all})` },
+                  { key: "accepted", label: `Accepted (${allCounts.accepted})` },
+                  { key: "others", label: `Others (${allCounts.others})` },
+                ]}
+                active={allFilter}
+                onChange={(k) => setAllFilter(k as AllFilter)}
+              />
+              {volunteerDropdown}
+            </div>
           }
           rows={filteredAll}
           segment="all"
@@ -450,17 +504,20 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
       {segment === "portal" && (
         <Section
           filterPills={
-            <FilterPills
-              filters={[
-                { key: "all", label: `All (${portalCounts.all})` },
-                { key: "incomplete", label: `Incomplete (${portalCounts.incomplete})` },
-                { key: "pending", label: `Pending invitation (${portalCounts.pending})` },
-                { key: "accepted", label: `Accepted (${portalCounts.accepted})` },
-                { key: "rejected", label: `Rejected (${portalCounts.rejected})` },
-              ]}
-              active={portalFilter}
-              onChange={(k) => setPortalFilter(k as PortalFilter)}
-            />
+            <div className="flex flex-wrap items-center gap-4">
+              <FilterPills
+                filters={[
+                  { key: "all", label: `All (${portalCounts.all})` },
+                  { key: "incomplete", label: `Incomplete (${portalCounts.incomplete})` },
+                  { key: "pending", label: `Pending invitation (${portalCounts.pending})` },
+                  { key: "accepted", label: `Accepted (${portalCounts.accepted})` },
+                  { key: "rejected", label: `Rejected (${portalCounts.rejected})` },
+                ]}
+                active={portalFilter}
+                onChange={(k) => setPortalFilter(k as PortalFilter)}
+              />
+              {volunteerDropdown}
+            </div>
           }
           rows={filteredPortal}
           segment="portal"
@@ -482,16 +539,19 @@ export function AdminDashboard({ initialRows }: { initialRows: InviteeRow[] }) {
       {segment === "admin" && (
         <Section
           filterPills={
-            <FilterPills
-              filters={[
-                { key: "all", label: `All (${adminCounts.all})` },
-                { key: "sent", label: `Invitation sent (${adminCounts.sent})` },
-                { key: "accepted", label: `Invitation accepted (${adminCounts.accepted})` },
-                { key: "approved", label: `Invitation approved (${adminCounts.approved})` },
-              ]}
-              active={adminFilter}
-              onChange={(k) => setAdminFilter(k as AdminFilter)}
-            />
+            <div className="flex flex-wrap items-center gap-4">
+              <FilterPills
+                filters={[
+                  { key: "all", label: `All (${adminCounts.all})` },
+                  { key: "sent", label: `Invitation sent (${adminCounts.sent})` },
+                  { key: "accepted", label: `Invitation accepted (${adminCounts.accepted})` },
+                  { key: "approved", label: `Invitation approved (${adminCounts.approved})` },
+                ]}
+                active={adminFilter}
+                onChange={(k) => setAdminFilter(k as AdminFilter)}
+              />
+              {volunteerDropdown}
+            </div>
           }
           rows={filteredAdmin}
           segment="admin"
@@ -550,22 +610,22 @@ function FilterPills<K extends string>({
   onChange: (k: K) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {filters.map((f) => (
-        <button
-          key={f.key}
-          type="button"
-          onClick={() => onChange(f.key)}
-          className={cn(
-            "rounded-full border px-3 py-1 font-mono text-xs uppercase tracking-wider transition-colors",
-            active === f.key
-              ? "border-gold bg-gold/10 text-gold"
-              : "border-border text-cream-70 hover:border-gold/40"
-          )}
-        >
-          {f.label}
-        </button>
-      ))}
+    <div className="flex items-center gap-2">
+      <span className="font-mono text-xs uppercase tracking-[0.2em] text-cream-70">
+        Status
+      </span>
+      <Select value={active} onValueChange={(v) => onChange(v as K)}>
+        <SelectTrigger className="h-9 w-56 min-w-0 text-sm [&>span]:min-w-0 [&>span]:truncate">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {filters.map((f) => (
+            <SelectItem key={f.key} value={f.key}>
+              {f.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -603,9 +663,9 @@ function Section({
   volunteerList: { id: string; name: string; email: string }[];
   bulkBusy: boolean;
 }) {
-  const decidableVisible = rows.filter(isDecidable);
-  const allDecidableSelected =
-    decidableVisible.length > 0 && decidableVisible.every((r) => selectedIds.has(r.id));
+  const selectableVisible = rows.filter(isSelectable);
+  const allSelectableChecked =
+    selectableVisible.length > 0 && selectableVisible.every((r) => selectedIds.has(r.id));
   const selectedRows = rows.filter((r) => selectedIds.has(r.id));
   const approveCount = selectedRows.filter(isDecidable).length;
   const rejectCount = selectedRows.filter(isRejectable).length;
@@ -685,16 +745,16 @@ function Section({
               onValueChange={(v) => {
                 if (v) onAssign(v);
               }}
-              disabled={bulkBusy || approvedSelectedCount === 0 || volunteerList.length === 0}
+              disabled={bulkBusy || volunteerList.length === 0}
             >
-              <SelectTrigger className="h-8 w-44 [&>span]:min-w-0 [&>span]:truncate">
+              <SelectTrigger className="h-8 w-48 [&>span]:min-w-0 [&>span]:truncate">
                 <SelectValue
                   placeholder={
                     volunteerList.length === 0
                       ? "No volunteers"
-                      : approvedSelectedCount === 0
-                        ? "Assign (need approved)"
-                        : `Assign ${approvedSelectedCount} →`
+                      : approvedSelectedCount > 0
+                        ? `Assign ${approvedSelectedCount} →`
+                        : "Assign to volunteer..."
                   }
                 />
               </SelectTrigger>
@@ -720,10 +780,10 @@ function Section({
                   <input
                     type="checkbox"
                     className="h-4 w-4 cursor-pointer accent-gold disabled:opacity-30"
-                    aria-label="Select all decidable rows"
-                    checked={allDecidableSelected}
-                    disabled={decidableVisible.length === 0}
-                    onChange={(e) => onSelectAllVisible(decidableVisible, e.target.checked)}
+                    aria-label="Select all selectable rows"
+                    checked={allSelectableChecked}
+                    disabled={selectableVisible.length === 0}
+                    onChange={(e) => onSelectAllVisible(selectableVisible, e.target.checked)}
                   />
                 </th>
               )}
@@ -865,10 +925,11 @@ function Row({
     Boolean(row.decidedBy) ||
     Boolean(row.referralCode) ||
     Boolean(row.assignedVolunteerName) ||
+    Boolean(row.attendedAt) ||
     emailChanged ||
     Boolean(row.refreshCount);
 
-  const decidable = isDecidable(row);
+  const selectable = isSelectable(row);
   const colCount = selectionMode ? 7 : 6;
 
   return (
@@ -891,10 +952,10 @@ function Row({
               type="checkbox"
               className="mt-1 h-4 w-4 cursor-pointer accent-gold disabled:cursor-not-allowed disabled:opacity-30"
               checked={selected}
-              disabled={!decidable}
+              disabled={!selectable}
               onChange={() => onToggleSelect(row.id)}
               aria-label={
-                decidable ? `Select ${row.email}` : `${row.email} is not decidable`
+                selectable ? `Select ${row.email}` : `${row.email} is not selectable`
               }
             />
           </td>
@@ -924,6 +985,16 @@ function Row({
                 title={`Assigned to ${row.assignedVolunteerName}`}
               >
                 vol · {row.assignedVolunteerName}
+              </span>
+            )}
+            {row.attendedAt && (
+              <span
+                className="inline-block rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300"
+                title={`Checked in ${fmtDate(row.attendedAt) ?? ""}${
+                  row.attendedByName ? ` by ${row.attendedByName}` : ""
+                }`}
+              >
+                ✓ Attended
               </span>
             )}
           </div>
@@ -1001,6 +1072,14 @@ function Row({
               )}
               {row.assignedVolunteerName && (
                 <Detail label="Assigned volunteer" value={row.assignedVolunteerName} />
+              )}
+              {row.attendedAt && (
+                <Detail
+                  label="Attended"
+                  value={`${fmtDate(row.attendedAt) ?? ""}${
+                    row.attendedByName ? ` · checked in by ${row.attendedByName}` : ""
+                  }`}
+                />
               )}
               {row.refreshCount && row.refreshCount > 0 ? (
                 <Detail

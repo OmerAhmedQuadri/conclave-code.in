@@ -43,6 +43,9 @@ export interface InviteeDoc {
   assignedVolunteerId?: ObjectId;
   assignedAt?: Date;
   assignedBy?: string;
+  attendedAt?: Date;
+  attendedBy?: ObjectId; // volunteer ObjectId
+  attendedByName?: string;
   otp?: string;
   otpExpiresAt?: Date;
   otpAttempts?: number;
@@ -72,6 +75,8 @@ export interface InviteeListItem {
   lastRefreshedAt?: Date;
   assignedVolunteerId?: string;
   assignedVolunteerName?: string;
+  attendedAt?: Date;
+  attendedByName?: string;
   token: string;
   reason?: string;
   referralCode?: string;

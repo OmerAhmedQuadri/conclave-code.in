@@ -36,7 +36,7 @@ export async function processAutoApprovals(): Promise<number> {
 
   // Fire-and-forget confirmation emails — failures shouldn't block the dashboard
   for (const doc of eligible) {
-    sendConfirmationEmail({ to: doc.email, name: doc.name }).catch((err) => {
+    sendConfirmationEmail({ to: doc.email, name: doc.name, entryToken: doc.token }).catch((err) => {
       console.error("[auto-approve] confirmation email failed:", doc.email, err);
     });
   }

@@ -64,6 +64,8 @@ export async function GET() {
     assignedVolunteerName: d.assignedVolunteerId
       ? volMap.get(d.assignedVolunteerId.toString())
       : undefined,
+    attendedAt: d.attendedAt,
+    attendedByName: d.attendedByName,
     formData: d.formData,
     requestData: d.requestData,
   }));

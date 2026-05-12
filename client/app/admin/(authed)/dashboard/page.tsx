@@ -53,6 +53,8 @@ export default async function DashboardPage() {
     assignedVolunteerName: d.assignedVolunteerId
       ? volMap.get(d.assignedVolunteerId.toString())
       : undefined,
+    attendedAt: d.attendedAt?.toISOString(),
+    attendedByName: d.attendedByName,
     formData: d.formData,
     requestData: d.requestData,
   }));

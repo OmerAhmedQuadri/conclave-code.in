@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import nodemailer from "nodemailer";
 import { content } from "@/lib/content";
+import { generateQrDataUrl } from "@/lib/qr";
 
 const host = process.env.SMTP_HOST;
 const port = Number(process.env.SMTP_PORT ?? 587);
@@ -307,13 +308,45 @@ export async function sendInvitationAcceptedNotification(args: {
   );
 }
 
-export async function sendConfirmationEmail(args: { to: string; name?: string }) {
+export async function sendConfirmationEmail(args: {
+  to: string;
+  name?: string;
+  entryToken?: string;
+}) {
   const greeting = args.name ? `Dear ${args.name},` : "Hello,";
   const eventRows = [
     detailRow("Date", "Saturday, June 6, 2026"),
     detailRow("Time", "6:00 PM – 8:30 PM"),
     detailRow("Venue", "T-Hub, Hyderabad"),
   ].join("");
+
+  // Build the QR-code entry pass when we have a token. If generation fails for
+  // any reason, just leave the section out — the email still goes through.
+  let qrSection = "";
+  if (args.entryToken) {
+    try {
+      const qrUrl = await generateQrDataUrl(args.entryToken);
+      qrSection = `
+        <tr><td style="padding-top:28px;">
+          <div style="font-family:${MONO_STACK};font-size:11px;letter-spacing:0.25em;color:#D4A843;text-transform:uppercase;text-align:center;margin-bottom:14px;">
+            Your entry pass
+          </div>
+        </td></tr>
+        <tr><td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr><td style="background:#FFFFFF;border:1px solid #2d2d2d;border-radius:14px;padding:16px;">
+              <img src="${qrUrl}" alt="Entry QR" width="220" height="220" style="display:block;border:0;outline:none;width:220px;height:220px;" />
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="font-family:${FONT_STACK};font-size:13px;line-height:1.6;color:#cfcfc8;text-align:center;padding-top:14px;">
+          Show this QR at the entrance — a volunteer will scan it and check you in.
+        </td></tr>
+      `;
+    } catch (err) {
+      console.error("[mailer] QR generation failed:", err);
+    }
+  }
 
   const html = wrap(
     `
@@ -331,13 +364,14 @@ export async function sendConfirmationEmail(args: { to: string; name?: string })
         ${eventRows}
       </table>
     </td></tr>
+    ${qrSection}
     <tr><td style="font-family:${FONT_STACK};font-size:13px;line-height:1.6;color:#8a8a85;padding-top:22px;">
       A reminder with directions and parking info will reach you on WhatsApp 24 hours before the event.
     </td></tr>
   `,
     "Your seat at the Future Engineers Conclave is confirmed"
   );
-  const text = `${greeting}\n\nYour seat at the Future Engineers Conclave is confirmed.\n\nJune 6, 2026 · 6:00–8:30 PM · T-Hub, Hyderabad.`;
+  const text = `${greeting}\n\nYour seat at the Future Engineers Conclave is confirmed.\n\nJune 6, 2026 · 6:00–8:30 PM · T-Hub, Hyderabad.${args.entryToken ? "\n\nShow your QR entry pass at the venue." : ""}`;
   await send({ to: args.to, subject: "You're confirmed · Future Engineers Conclave", html, text });
 }
 

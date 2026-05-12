@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
   if (newStatus === "approved") {
     try {
-      await sendConfirmationEmail({ to: doc.email, name: doc.name });
+      await sendConfirmationEmail({ to: doc.email, name: doc.name, entryToken: doc.token });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Approved but email failed";
       return NextResponse.json({ ok: true, warning: message });
