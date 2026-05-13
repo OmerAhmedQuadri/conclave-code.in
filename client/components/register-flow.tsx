@@ -117,6 +117,14 @@ function AcceptStage({
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (name.trim().length < 2) {
+      setError("Please enter your name (at least 2 characters).");
+      return;
+    }
+    if (!email.trim()) {
+      setError("Please enter your email.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -429,7 +437,7 @@ function FullFormStage({
               ✓ Email verified
             </p>
             <p className="mt-1 text-sm text-cream">
-              {name} · <span className="text-cream-70">{email}</span>
+              <span className="text-cream-70">{email}</span>
             </p>
           </div>
           <button
@@ -441,6 +449,21 @@ function FullFormStage({
           </button>
         </div>
       </div>
+
+      <section className="space-y-5">
+        <h3 className="font-mono text-xs font-bold tracking-[0.25em] text-gold">YOUR DETAILS</h3>
+        <div className="grid gap-2">
+          <Label htmlFor="name">Your name</Label>
+          <Input
+            id="name"
+            autoComplete="name"
+            placeholder="As you'd like us to address you"
+            {...register("name")}
+            aria-invalid={errors.name ? "true" : undefined}
+          />
+          {errors.name && <Err>{errors.name.message}</Err>}
+        </div>
+      </section>
 
       <section className="space-y-5">
         <h3 className="font-mono text-xs font-bold tracking-[0.25em] text-gold">STUDENT DETAILS</h3>
@@ -553,7 +576,6 @@ function FullFormStage({
       </section>
 
       <input type="hidden" {...register("token")} />
-      <input type="hidden" {...register("name")} />
       <input type="hidden" {...register("email")} />
       <input type="hidden" {...register("verificationToken")} />
 

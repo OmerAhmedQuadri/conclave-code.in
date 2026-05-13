@@ -60,33 +60,46 @@ export async function POST(request: Request) {
     { upsert: true }
   );
 
-  try {
-    await sendOtpEmail({ to: email, otp });
-  } catch (err) {
-    console.error("[request-invite/send-otp] mail failed:", err);
-    return NextResponse.json(
-      { ok: false, message: "Could not send OTP email. Please try again." },
-      { status: 502 }
-    );
-  }
+  // Send the OTP and write the placeholder invitee concurrently. The placeholder
+  // doesn't depend on the email going through, and we don't want to make the
+  // user wait for two sequential operations.
+  const inviteePromise: Promise<unknown> = (() => {
+    if (!existing) {
+      return inviteeCol.insertOne({
+        email,
+        name,
+        token: generateInviteToken(),
+        status: "otp_verified",
+        source: "portal",
+        requestedAt: new Date(),
+      });
+    }
+    if (existing.source === "portal" && existing.status === "otp_verified") {
+      return inviteeCol.updateOne(
+        { _id: existing._id },
+        { $set: { name: name || existing.name } }
+      );
+    }
+    return Promise.resolve();
+  })();
 
-  // Create a placeholder "incomplete" invitee record on first contact so admins
-  // can see users who entered their email but never completed the flow.
-  // verifiedAt stays unset until they actually verify the OTP.
-  if (!existing) {
-    await inviteeCol.insertOne({
-      email,
-      name,
-      token: generateInviteToken(),
-      status: "otp_verified",
-      source: "portal",
-      requestedAt: new Date(),
-    });
-  } else if (existing.source === "portal" && existing.status === "otp_verified") {
-    // Resume — keep the same record, just refresh the latest provided name
-    await inviteeCol.updateOne(
-      { _id: existing._id },
-      { $set: { name: name || existing.name } }
+  try {
+    const [mailResult] = await Promise.allSettled([
+      sendOtpEmail({ to: email, otp }),
+      inviteePromise,
+    ]);
+    if (mailResult.status === "rejected") {
+      console.error("[request-invite/send-otp] mail failed:", mailResult.reason);
+      return NextResponse.json(
+        { ok: false, message: "Could not send OTP email. Please try again." },
+        { status: 502 }
+      );
+    }
+  } catch (err) {
+    console.error("[request-invite/send-otp] failed:", err);
+    return NextResponse.json(
+      { ok: false, message: "Could not send OTP. Please try again." },
+      { status: 502 }
     );
   }
 

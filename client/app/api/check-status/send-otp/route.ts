@@ -32,26 +32,26 @@ export async function POST(request: Request) {
   const expiresAt = new Date(Date.now() + OTP_TTL_MS);
 
   const otpCol = await pendingOtps();
-  await otpCol.updateOne(
-    { email },
-    {
-      $set: {
-        email,
-        name: invitee.name ?? "",
-        otp,
-        expiresAt,
-        attempts: 0,
-        verifiedAt: undefined,
+  const [, mailResult] = await Promise.allSettled([
+    otpCol.updateOne(
+      { email },
+      {
+        $set: {
+          email,
+          name: invitee.name ?? "",
+          otp,
+          expiresAt,
+          attempts: 0,
+          verifiedAt: undefined,
+        },
+        $setOnInsert: { createdAt: new Date() },
       },
-      $setOnInsert: { createdAt: new Date() },
-    },
-    { upsert: true }
-  );
-
-  try {
-    await sendOtpEmail({ to: email, otp });
-  } catch (err) {
-    console.error("[check-status/send-otp] mail failed:", err);
+      { upsert: true }
+    ),
+    sendOtpEmail({ to: email, otp }),
+  ]);
+  if (mailResult.status === "rejected") {
+    console.error("[check-status/send-otp] mail failed:", mailResult.reason);
     return NextResponse.json(
       { ok: false, message: "Could not send OTP email. Please try again." },
       { status: 502 }

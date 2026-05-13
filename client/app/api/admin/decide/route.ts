@@ -47,13 +47,13 @@ export async function POST(request: Request) {
     { $set: { status: newStatus, decidedAt: new Date(), decidedBy: adminEmail } }
   );
 
+  // Fire-and-forget the confirmation email — the admin's action is complete
+  // the moment the status is updated, and SMTP (esp. Gmail w/ QR attachment)
+  // can take several seconds.
   if (newStatus === "approved") {
-    try {
-      await sendConfirmationEmail({ to: doc.email, name: doc.name, entryToken: doc.token });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Approved but email failed";
-      return NextResponse.json({ ok: true, warning: message });
-    }
+    sendConfirmationEmail({ to: doc.email, name: doc.name, entryToken: doc.token }).catch(
+      (err) => console.error("[decide] confirmation email failed:", doc.email, err)
+    );
   }
 
   return NextResponse.json({ ok: true, status: newStatus });

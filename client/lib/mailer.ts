@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import nodemailer from "nodemailer";
 import { content } from "@/lib/content";
-import { generateQrDataUrl } from "@/lib/qr";
+import { generateQrBuffer } from "@/lib/qr";
 
 const host = process.env.SMTP_HOST;
 const port = Number(process.env.SMTP_PORT ?? 587);
@@ -22,8 +22,24 @@ function getTransporter(): nodemailer.Transporter {
     port,
     secure: port === 465,
     auth: { user, pass },
+    // Aggressive timeouts so a flaky SMTP connection can't lock up an API
+    // route. Without these, nodemailer's defaults can hang for ~5 minutes.
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 30_000,
+    // Reuse a single connection across mails — faster than re-handshaking
+    // for every send.
+    pool: true,
+    maxConnections: 3,
   });
   return transporter;
+}
+
+interface InlineAttachment {
+  filename: string;
+  content: Buffer;
+  cid: string;
+  contentType?: string;
 }
 
 interface SendArgs {
@@ -31,11 +47,25 @@ interface SendArgs {
   subject: string;
   html: string;
   text: string;
+  attachments?: InlineAttachment[];
 }
 
-async function send({ to, subject, html, text }: SendArgs) {
+async function send({ to, subject, html, text, attachments }: SendArgs) {
   const t = getTransporter();
-  await t.sendMail({ from, to, subject, html, text });
+  await t.sendMail({
+    from,
+    to,
+    subject,
+    html,
+    text,
+    attachments: attachments?.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+      cid: a.cid,
+      contentType: a.contentType ?? "image/png",
+      contentDisposition: "inline",
+    })),
+  });
 }
 
 /**
@@ -320,12 +350,22 @@ export async function sendConfirmationEmail(args: {
     detailRow("Venue", "T-Hub, Hyderabad"),
   ].join("");
 
-  // Build the QR-code entry pass when we have a token. If generation fails for
-  // any reason, just leave the section out — the email still goes through.
+  // Build the QR-code entry pass when we have a token. We attach the QR
+  // PNG as an inline CID attachment instead of a data: URL because every
+  // mainstream client (Gmail, Outlook, Apple Mail) strips data URLs from
+  // <img src>. If generation fails for any reason, leave the section out —
+  // the email still goes through.
   let qrSection = "";
+  let qrAttachment: InlineAttachment | null = null;
   if (args.entryToken) {
     try {
-      const qrUrl = await generateQrDataUrl(args.entryToken);
+      const buf = await generateQrBuffer(args.entryToken);
+      qrAttachment = {
+        filename: "entry-pass.png",
+        content: buf,
+        cid: "entry-pass-qr@codein",
+        contentType: "image/png",
+      };
       qrSection = `
         <tr><td style="padding-top:28px;">
           <div style="font-family:${MONO_STACK};font-size:11px;letter-spacing:0.25em;color:#D4A843;text-transform:uppercase;text-align:center;margin-bottom:14px;">
@@ -335,7 +375,7 @@ export async function sendConfirmationEmail(args: {
         <tr><td align="center">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0">
             <tr><td style="background:#FFFFFF;border:1px solid #2d2d2d;border-radius:14px;padding:16px;">
-              <img src="${qrUrl}" alt="Entry QR" width="220" height="220" style="display:block;border:0;outline:none;width:220px;height:220px;" />
+              <img src="cid:entry-pass-qr@codein" alt="Entry QR" width="220" height="220" style="display:block;border:0;outline:none;width:220px;height:220px;" />
             </td></tr>
           </table>
         </td></tr>
@@ -372,7 +412,13 @@ export async function sendConfirmationEmail(args: {
     "Your seat at the Future Engineers Conclave is confirmed"
   );
   const text = `${greeting}\n\nYour seat at the Future Engineers Conclave is confirmed.\n\nJune 6, 2026 · 6:00–8:30 PM · T-Hub, Hyderabad.${args.entryToken ? "\n\nShow your QR entry pass at the venue." : ""}`;
-  await send({ to: args.to, subject: "You're confirmed · Future Engineers Conclave", html, text });
+  await send({
+    to: args.to,
+    subject: "You're confirmed · Future Engineers Conclave",
+    html,
+    text,
+    attachments: qrAttachment ? [qrAttachment] : undefined,
+  });
 }
 
 // ─── helpers ────────────────────────────────────────────────────────────────

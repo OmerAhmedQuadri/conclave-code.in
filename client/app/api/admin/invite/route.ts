@@ -30,29 +30,41 @@ export async function POST(request: Request) {
 
   const existing = await col.findOne({ email });
 
+  const origin = request.headers.get("origin") ?? new URL(request.url).origin;
+
   // If a "requested" row exists, upgrade it to "invited" (reuse the token).
   if (existing && existing.status === "requested") {
-    const origin = request.headers.get("origin") ?? new URL(request.url).origin;
     const inviteUrl = `${origin}/register/${existing.token}`;
-    try {
-      await sendInviteEmail({ to: email, name: existing.name ?? name, inviteUrl });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to send email";
-      return NextResponse.json({ ok: false, message }, { status: 502 });
+
+    // Run the DB update + the SMTP send in parallel. The user (admin) doesn't
+    // need to wait for SMTP to ACK before we report success — we surface a
+    // warning if the email fails so they can resend, but the row state is
+    // already correct.
+    const [, mailResult] = await Promise.allSettled([
+      col.updateOne(
+        { _id: existing._id },
+        {
+          $set: {
+            status: "invited",
+            source: "admin",
+            invitedBy: adminEmail,
+            invitedAt: new Date(),
+            autoApproveMode,
+            ...(name && !existing.name ? { name } : {}),
+          },
+        }
+      ),
+      sendInviteEmail({ to: email, name: existing.name ?? name, inviteUrl }),
+    ]);
+    if (mailResult.status === "rejected") {
+      console.error("[admin/invite] mail failed (upgrade):", mailResult.reason);
+      return NextResponse.json({
+        ok: true,
+        inviteUrl,
+        upgraded: true,
+        warning: "Invitation row upgraded but the email could not be sent. Try again from the row.",
+      });
     }
-    await col.updateOne(
-      { _id: existing._id },
-      {
-        $set: {
-          status: "invited",
-          source: "admin",
-          invitedBy: adminEmail,
-          invitedAt: new Date(),
-          autoApproveMode,
-          ...(name && !existing.name ? { name } : {}),
-        },
-      }
-    );
     return NextResponse.json({ ok: true, inviteUrl, upgraded: true });
   }
 
@@ -75,15 +87,20 @@ export async function POST(request: Request) {
     autoApproveMode,
   });
 
-  const origin = request.headers.get("origin") ?? new URL(request.url).origin;
   const inviteUrl = `${origin}/register/${token}`;
 
   try {
     await sendInviteEmail({ to: email, name, inviteUrl });
   } catch (err) {
-    await col.deleteOne({ token });
-    const message = err instanceof Error ? err.message : "Failed to send email";
-    return NextResponse.json({ ok: false, message }, { status: 502 });
+    // Keep the invitee around but mark via a warning — admin can resend
+    // rather than losing the row entirely.
+    console.error("[admin/invite] mail failed:", err);
+    return NextResponse.json({
+      ok: true,
+      inviteUrl,
+      warning:
+        "Invitee saved but the email could not be sent. Click the row to resend, or check SMTP.",
+    });
   }
 
   return NextResponse.json({ ok: true, inviteUrl });
