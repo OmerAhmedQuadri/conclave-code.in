@@ -14,6 +14,7 @@ const NAV = [
   { href: "/admin/volunteers", label: "VOLUNTEERS" },
   { href: "/admin/schools", label: "SCHOOLS" },
   { href: "/admin/admins", label: "ADMINS" },
+  { href: "/admin/marketing", label: "MARKETING" },
 ];
 
 export function AdminHeader({ adminEmail }: { adminEmail: string }) {
